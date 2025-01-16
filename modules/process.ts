@@ -1,5 +1,5 @@
 
-import {join} from './_path_utils';
+import {join} from './_path';
 import {platform as _platform} from './os';
 
 export function abort(): void {
