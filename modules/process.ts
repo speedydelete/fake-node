@@ -1,12 +1,12 @@
 
-import {join} from './_path';
+import {join} from './path';
 import {platform as _platform} from './os';
 
 export function abort(): void {
     window.close();
 }
     
-export const allowedNodeEnvironmentFlags = new Set<never>(),
+export const allowedNodeEnvironmentFlags = new Set<never>();
     
 export let _argv: {argv: string[]} = {argv: []};
 export const argv = _argv.argv;
