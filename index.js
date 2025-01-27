@@ -1,0 +1,1 @@
+throw new ReferenceError('module is not defined');
