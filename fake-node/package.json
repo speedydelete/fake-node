@@ -1,13 +1,19 @@
 {
   "name": "fake-node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A fake version of Node that works in the browser",
   "license": "MIT",
   "author": "speedydelete",
   "type": "commonjs",
   "main": "index.js",
   "homepage": "https://github.com/speedydelete/fake-node",
-  "repository": "github:speedydelete/fake-node",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/speedydelete/fake-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/speedydelete/fake-node/issues"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc"
@@ -26,7 +32,7 @@
     "util": "^0.12.5"
   },
   "devDependencies": {
-    "@types/node": "^22.13.1",
+    "@types/assert": "^1.5.11",
     "@types/punycode": "^2.1.4",
     "typescript": "^5.7.3"
   }
