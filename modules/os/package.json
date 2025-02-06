@@ -1,0 +1,20 @@
+{
+  "name": "@fake-node/os",
+  "version": "0.1.0",
+  "description": "A fake version of node:os for fake-node.",
+  "homepage": "https://github.com/speedydelete/fake-node#readme",
+  "bugs": {
+    "url": "https://github.com/speedydelete/fake-node/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/speedydelete/fake-node.git"
+  },
+  "license": "MIT",
+  "author": "speedydelete",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}

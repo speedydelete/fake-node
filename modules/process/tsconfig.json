@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+      "strict": true,
+      "resolveJsonModule": true,
+      "esModuleInterop": true,
+      "module": "NodeNext"
+    },
+    "files": ["index.ts"],
+    "exclude": ["node_modules"]
+}
