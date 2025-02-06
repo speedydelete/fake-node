@@ -3,7 +3,59 @@ import '@fake-node/types';
 import * as process from 'process';
 import {resolve} from 'path';
 import {Buffer} from 'buffer';
-import * as c from './constants';
+
+
+const F_OK = 0;
+const X_OK = 1;
+const W_OK = 2;
+const R_OK = 4;
+
+const COPYFILE_EXCL = 1;
+const COPYFILE_FICLONE = 2;
+const COPYFILE_FICLONE_FORCE = 4;
+
+const O_RDONLY = 1;
+const O_WRONLY = 2;
+const O_RDWR = O_RDONLY | O_WRONLY;
+const O_CREAT = 4;
+const O_EXCL = 8;
+const O_NOCTTY = 16;
+const O_TRUNC = 32;
+const O_APPEND = 64;
+const O_DIRECTORY = 128;
+const O_NOATIME = 256;
+const O_NOFOLLOW = 512;
+const O_SYNC = 1024;
+const O_DSYNC = 2048;
+const O_SYMLINK = 4096;
+const O_DIRECT = 8192;
+const O_NONBLOCK = 16384;
+const UV_FS_O_FILEMAP = 32768;
+
+const S_IMFT = 0xF000;
+const S_IFREG = 0x8000;
+const S_IFDIR = 0x4000;
+const S_IFCHR = 0x2000;
+const S_IFBLK = 0x6000;
+const S_IFIFO = 0x1000;
+const S_IFLNK = 0xA000;
+const S_IFSOCK = 0xC000;
+
+const S_IRWXU = 0o700;
+const S_IRUSR = 0o400;
+const S_IWUSR = 0o200;
+const S_IXUSR = 0o100;
+const S_IRWXG = 0o070;
+const S_IRGRP = 0o040;
+const S_IWGRP = 0o020;
+const S_IXGRP = 0o010;
+const S_IRWXO = 0o007;
+const S_IROTH = 0o004;
+const S_IWOTH = 0o002;
+const S_IXOTH = 0o001;
+
+
+export const constants = {F_OK, X_OK, W_OK, R_OK, COPYFILE_EXCL, COPYFILE_FICLONE, COPYFILE_FICLONE_FORCE, O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_NOCTTY, O_TRUNC, O_APPEND, O_DIRECTORY, O_NOATIME, O_NOFOLLOW, O_SYNC, O_DSYNC, O_SYMLINK, O_DIRECT, O_NONBLOCK, UV_FS_O_FILEMAP, S_IMFT, S_IFREG, S_IFDIR, S_IFCHR, S_IFBLK, S_IFIFO, S_IFLNK, S_IFSOCK, S_IRWXU, S_IRUSR, S_IWUSR, S_IXUSR, S_IRWXG, S_IRGRP, S_IWGRP, S_IXGRP, S_IRWXO, S_IROTH, S_IWOTH, S_IXOTH};
 
 
 const encoder = new TextEncoder();
@@ -35,20 +87,20 @@ function parsePathArg(arg: PathArg): string {
 }
 
 const flags = {
-    'a': c.O_CREAT | c.O_APPEND,
-    'ax': c.O_CREAT | c.O_EXCL | c.O_APPEND,
-    'a+': c.O_RDONLY | c.O_CREAT | c.O_APPEND,
-    'ax+': c.O_RDONLY | c.O_CREAT | c.O_EXCL | c.O_APPEND,
-    'as': c.O_CREAT | c.O_APPEND | c.O_SYNC,
-    'as+': c.O_RDONLY | c.O_CREAT | c.O_APPEND | c.O_SYNC,
-    'r': c.O_RDONLY,
-    'rs': c.O_RDONLY | c.O_SYNC,
-    'r+': c.O_RDONLY | c.O_WRONLY,
-    'rs+': c.O_RDONLY | c.O_WRONLY | c.O_SYNC,
-    'w': c.O_WRONLY | c.O_CREAT | c.O_TRUNC,
-    'wx': c.O_WRONLY | c.O_CREAT | c.O_EXCL | c.O_TRUNC,
-    'w+': c.O_RDONLY | c.O_WRONLY | c.O_CREAT | c.O_TRUNC,
-    'wx+': c.O_RDONLY | c.O_WRONLY | c.O_CREAT | c.O_EXCL | c.O_TRUNC,
+    'a': O_CREAT | O_APPEND,
+    'ax': O_CREAT | O_EXCL | O_APPEND,
+    'a+': O_RDONLY | O_CREAT | O_APPEND,
+    'ax+': O_RDONLY | O_CREAT | O_EXCL | O_APPEND,
+    'as': O_CREAT | O_APPEND | O_SYNC,
+    'as+': O_RDONLY | O_CREAT | O_APPEND | O_SYNC,
+    'r': O_RDONLY,
+    'rs': O_RDONLY | O_SYNC,
+    'r+': O_RDONLY | O_WRONLY,
+    'rs+': O_RDONLY | O_WRONLY | O_SYNC,
+    'w': O_WRONLY | O_CREAT | O_TRUNC,
+    'wx': O_WRONLY | O_CREAT | O_EXCL | O_TRUNC,
+    'w+': O_RDONLY | O_WRONLY | O_CREAT | O_TRUNC,
+    'wx+': O_RDONLY | O_WRONLY | O_CREAT | O_EXCL | O_TRUNC,
 }
 
 export type Flag = number | keyof typeof flags;
@@ -141,31 +193,31 @@ abstract class BaseStats {
     abstract mode: number | bigint;
 
     isBlockDevice() {
-        return (Number(this.mode) & c.S_IFBLK) === c.S_IFBLK;
+        return (Number(this.mode) & S_IFBLK) === S_IFBLK;
     }
 
     isCharacterDevice() {
-        return (Number(this.mode) & c.S_IFCHR) === c.S_IFCHR;
+        return (Number(this.mode) & S_IFCHR) === S_IFCHR;
     }
 
     isDirectory() {
-        return (Number(this.mode) & c.S_IFDIR) === c.S_IFDIR;
+        return (Number(this.mode) & S_IFDIR) === S_IFDIR;
     }
 
     isFIFO() {
-        return (Number(this.mode) & c.S_IFIFO) === c.S_IFIFO;
+        return (Number(this.mode) & S_IFIFO) === S_IFIFO;
     }
 
     isFile() {
-        return (Number(this.mode) & c.S_IFREG) === c.S_IFREG;
+        return (Number(this.mode) & S_IFREG) === S_IFREG;
     }
 
     isSocket() {
-        return (Number(this.mode) & c.S_IFSOCK) === c.S_IFSOCK;
+        return (Number(this.mode) & S_IFSOCK) === S_IFSOCK;
     }
 
     isSymbolicLink() {
-        return (Number(this.mode) & c.S_IFLNK) === c.S_IFLNK;
+        return (Number(this.mode) & S_IFLNK) === S_IFLNK;
     }
 
 }
@@ -266,9 +318,9 @@ export class FileObject {
     rdev: number = -1;
 
     constructor({mode, uid, gid}: FileParams) {
-        this.mode = mode ?? (c.S_IRUSR | c.S_IWUSR | c.S_IRGRP | c.S_IROTH);
-        this.uid = uid ?? __fakeNode_process__.getuid();
-        this.gid = gid ?? __fakeNode_process__.getgid();
+        this.mode = mode ?? (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        this.uid = uid ?? __fakeNode_process__.uid;
+        this.gid = gid ?? __fakeNode_process__.gid;
         this.birthtime = process.hrtime.bigint();
         this.atime = this.birthtime;
         this.mtime = this.birthtime;
@@ -287,7 +339,7 @@ export class FileObject {
         this.ctime = process.hrtime.bigint();
     }
 
-    access(mode: number = c.F_OK): void {
+    access(mode: number = F_OK): void {
         const chmodInfo = (this.mode >> 3) & 0o777;
         let perms: number;
         if (process.getuid() === this.uid) {
@@ -297,7 +349,7 @@ export class FileObject {
         } else {
             perms = chmodInfo & 7;
         }
-        if ((((mode & c.X_OK) === c.X_OK) && !((perms & c.X_OK) === c.X_OK)) || (((mode & c.W_OK) === c.W_OK) && !((perms & c.W_OK) === c.W_OK)) || (((mode & c.R_OK) === c.R_OK) && !((perms & c.R_OK) === c.R_OK))) {
+        if ((((mode & X_OK) === X_OK) && !((perms & X_OK) === X_OK)) || (((mode & W_OK) === W_OK) && !((perms & W_OK) === W_OK)) || (((mode & R_OK) === R_OK) && !((perms & R_OK) === R_OK))) {
             throw new Error(`mode ${mode} and permissions ${chmodInfo} are not compatible`);
         }
     }
@@ -310,8 +362,8 @@ export class FileObject {
     }
 
     chown(uid: string | number, gid: string | number): void {
-        this.uid = __fakeNode_process__.fakeNode.resolveUser(uid);
-        this.gid = __fakeNode_process__.fakeNode.resolveGroup(gid);
+        this.uid = __fakeNode__.getUIDFromUser(uid);
+        this.gid = __fakeNode__.getGIDFromGroup(gid);
         this.setCtime();
     }
 
@@ -392,7 +444,7 @@ export class RegularFile extends FileObject {
     data: Uint8Array;
 
     constructor(data: DataArg, {mode = 0o6440, encoding, ...params}: FileParams & {encoding?: string}) {
-        super({mode: mode | c.S_IFREG, ...params});
+        super({mode: mode | S_IFREG, ...params});
         this.write(data);
     }
 
@@ -439,7 +491,7 @@ export class Directory extends FileObject {
     constructor(files: {[key: string]: FileObject}, {mode, ...params}: FileParams);
     constructor(files: MapIterator<[string, FileObject]>, {mode, ...params}: FileParams);
     constructor(files: Map<string, FileObject> | {[key: string]: FileObject} | MapIterator<[string, FileObject]> = new Map(), {mode = 0o6440, ...params}: FileParams) {
-        super({mode: mode | c.S_IFDIR, ...params});
+        super({mode: mode | S_IFDIR, ...params});
         if (files instanceof Map) {
             this.files = files;
         } else {

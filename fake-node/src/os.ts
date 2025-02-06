@@ -4,7 +4,7 @@ import '@fake-node/types';
 export const EOL = '\n';
 
 export function availableParallelism(): number {
-    return __fakeNode_process__.fakeNode.window.navigator.hardwareConcurrency;
+    return 1;
 }
 
 export function arch(): string {
@@ -163,35 +163,42 @@ export function endianness(): string {
 }
 
 export function freemem(): number {
-    throw new TypeError('os.freemem is not supported in fake-node');
+    return Infinity;
 }
 
-export function getPriority(pid: number = 0): number {
-    return -1;
+export function getPriority(pid: number = -1): number {
+    if (pid === -1) {
+        return __fakeNode_process__.priority;
+    }
+    const process = __fakeNode__.processes.get(pid);
+    if (process === undefined) {
+        throw new TypeError(`invalid PID: ${pid}`);
+    }
+    return process.priority;
 }
 
 export function homedir(): string {
-    return '/home/root';
+    return '/home/' + __fakeNode__.getUserFromUID(__fakeNode_process__.uid);
 }
 
 export function hostname(): string {
-    return 'fake-node';
+    return __fakeNode__.globalenv.HOSTNAME;
 }
 
 export function loadavg(): [number, number, number] {
-    return [0, 0, 0];
+    return [-1, -1, -1];
 }
 
 export function machine(): string {
-    return 'fake-node';
+    return 'x86_64';
 }
 
 export function networkInterfaces(): {[key: string]: {address: string, netmask: string, family: 'IPV4' | 'IPV6', mac: string, internal: boolean, scopeid: number, cidr: string}} {
-    throw new TypeError('os.networkInterfaces is not supported in fake-node');
+    return {};
 }
 
 export function platform(): string {
-    const data = window.navigator.userAgent.slice('Mozilla/5.0 ('.length, navigator.userAgent.indexOf(')'));
+    const data = __fakeNode__.window.navigator.userAgent.slice('Mozilla/5.0 ('.length, navigator.userAgent.indexOf(')'));
     if (data.includes('Windows')) {
         return 'win32';
     } else if (data.includes('Linux')) {
@@ -207,16 +214,26 @@ export function release(): string {
     return platform();
 }
 
+export function setPriority(priority: number): void;
+export function setPriority(pid: number, priority: number): void;
 export function setPriority(pid_or_priority: number, priority?: number): void {
-    throw new TypeError('os.setPriority is not supported in fake-node');
+    if (priority === undefined) {
+        __fakeNode_process__.priority = pid_or_priority;
+    } else {
+        const process = __fakeNode__.processes.get(pid_or_priority);
+        if (process === undefined) {
+            throw new TypeError(`invalid PID: ${pid_or_priority}`);
+        }
+        process.priority = priority;
+    }
 }
 
 export function tmpdir(): string {
-    return '/tmp';
+    return __fakeNode__.globalenv.TMPDIR;
 }
 
 export function totalmem(): number {
-    throw new TypeError('os.totalmem is not supported in fake-node');
+    return Infinity;
 }
 
 export function type(): string {
@@ -233,19 +250,19 @@ export function type(): string {
 }
 
 export function uptime(): number {
-    return window.performance.timeOrigin / 1000;
+    return (__fakeNode__.window.performance.now() - __fakeNode__.window.performance.timeOrigin) / 1000;
 }
 
 export function userInfo(): {username: string, uid: number, gid: number, shell: string, homedir: string} {
     return {
-        username: __fakeNode_process__.fakeNode.getUserFromUID(__fakeNode_process__.getuid()),
-        uid: __fakeNode_process__.getuid(),
-        gid: __fakeNode_process__.getgid(),
+        username: __fakeNode_process__.fakeNode.getUserFromUID(__fakeNode_process__.uid),
+        uid: __fakeNode_process__.uid,
+        gid: __fakeNode_process__.gid,
         shell: '/bin/sh',
         homedir: homedir(),
     }
 }
 
 export function version(): string {
-    return '0.1.0';
+    return __fakeNode__.version;
 }

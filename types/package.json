@@ -1,17 +1,17 @@
 {
   "name": "@fake-node/types",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "description": "Types for programs using fake-node.",
   "license": "MIT",
   "author": "speedydelete",
   "types": "index.d.ts",
   "homepage": "https://github.com/speedydelete/fake-node#readme",
-  "bugs": {
-    "url": "https://github.com/speedydelete/fake-node/issues"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/speedydelete/fake-node.git"
+  },
+  "bugs": {
+    "url": "https://github.com/speedydelete/fake-node/issues"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

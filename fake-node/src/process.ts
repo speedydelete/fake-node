@@ -1,10 +1,9 @@
 
 import '@fake-node/types';
-
-var window = __fakeNode_process__.fakeNode.window;
+import {platform as _platform} from './os';
 
 export function abort(): void {
-    window.close();
+    __fakeNode__.window.close();
 }
    
 export const allowedNodeEnvironmentFlags = new Set<never>();
@@ -18,7 +17,7 @@ export const argv0 = __fakeNode_process__.argv0;
 export const channel = undefined;
 
 export function chdir(path: string): void {
-    __fakeNode_process__.chdir(path);
+    __fakeNode_process__.cwd = path;
 }
 
 export const config = {};
@@ -105,26 +104,26 @@ export function getBuiltinModule(id: string): any {
 }
 
 export function getegid(): number {
-    return __fakeNode_process__.getegid();
+    return __fakeNode_process__.gid;
 }
 
 export function geteuid(): number {
-    return __fakeNode_process__.geteuid();
+    return __fakeNode_process__.uid;
 }
 
 export function getgid(): number {
-    return __fakeNode_process__.getgid();
+    return __fakeNode_process__.gid;
 }
 
 export function getgroups(): number[] {
-    return __fakeNode_process__.getgroups();
+    return [__fakeNode_process__.gid].concat(__fakeNode_process__.groups);
 }
 
 export function getuid(): number {
-    return __fakeNode_process__.getuid();
+    return __fakeNode_process__.uid;
 }
 
-let errorCallback: null | Function = null;
+let errorCallback: null | number = null;
 
 export function hasUncaughtExecptionCaptureCallback(): boolean {
     return errorCallback !== null;
@@ -184,7 +183,7 @@ export function ref(maybeRefable: any): void {
 
 export const pid = 1;
 
-export const platform = os.platform();
+export const platform = _platform();
 
 export const ppid = 1;
 
@@ -196,23 +195,23 @@ export const release = {
 };
 
 export function setegid(id: string | number): void {
-    __fakeNode_process__.setegid(id);
+    __fakeNode_process__.gid = __fakeNode__.getGIDFromGroup(id);
 }
 
 export function seteuid(id: string | number): void {
-    __fakeNode_process__.seteuid(id);
+    __fakeNode_process__.uid = __fakeNode__.getUIDFromUser(id);
 }
 
 export function setgid(id: string | number): void {
-    __fakeNode_process__.setgid(id);
+    __fakeNode_process__.gid = __fakeNode__.getGIDFromGroup(id);
 }
 
 export function setgroups(groups: (string | number)[]): void {
-    __fakeNode_process__.setgroups(groups);
+    __fakeNode_process__.groups = groups.map(__fakeNode__.getGIDFromGroup);
 }
 
 export function setuid(id: string | number): void {
-    __fakeNode_process__.setuid(id);
+    __fakeNode_process__.uid = __fakeNode__.getUIDFromUser(id);
 }
 
 export function setSourceMapsEnabledVal(val: boolean): void {
@@ -221,9 +220,11 @@ export function setSourceMapsEnabledVal(val: boolean): void {
 
 export function setUncaughtExceptionCaptureCallback(func: Function | null): void {
     if (errorCallback !== null) {
-        __fakeNode_process__.fakeNode.removeErrorCallback(func);
+        __fakeNode__.removeErrorCallback(errorCallback);
     }
-    errorCallback = __fakeNode_process__.fakeNode.addErrorCallback(func);
+    if (func !== null) {
+        errorCallback = __fakeNode__.addErrorCallback(func);
+    }
 }
 
 export const sourceMapsEnabled = false;
@@ -240,8 +241,14 @@ export let title = ''; // todo: put something here
 
 export const traceDeprecation = false;
 
-export function umask(mask?: string | number): void {
-    throw new TypeError('process.umask is not supported in fake-node');
+export function umask(): number;
+export function umask(mask: number): void;
+export function umask(mask?: number): number | void {
+    if (mask === undefined) {
+        return __fakeNode_process__.umask;
+    } else {
+        __fakeNode_process__.umask = mask;
+    }
 }
 
 export function unref(maybeRefable: any): void {
@@ -252,6 +259,6 @@ export function uptime(): number {
     return __fakeNode_process__.fakeNode.window.performance.now() / 1000;
 }
 
-export const version = __fakeNode_process__.fakeNode.constructor.version;
+export const version = __fakeNode__.version;
 
 export const versions = [version];
