@@ -1,11 +1,10 @@
 
-// @ts-ignore
-import * as fn from '@fake-node/internal-api';
+import '@fake-node/types';
 
 export const EOL = '\n';
 
 export function availableParallelism(): number {
-    return fn.window.navigator.hardwareConcurrency;
+    return __fakeNode_process__.fakeNode.window.navigator.hardwareConcurrency;
 }
 
 export function arch(): string {
@@ -164,7 +163,7 @@ export function endianness(): string {
 }
 
 export function freemem(): number {
-    return fn.window.navigator.deviceMemory * 2**30;
+    throw new TypeError('os.freemem is not supported in fake-node');
 }
 
 export function getPriority(pid: number = 0): number {
@@ -172,7 +171,7 @@ export function getPriority(pid: number = 0): number {
 }
 
 export function homedir(): string {
-    return '/home/' + fn.username;
+    return '/home/root';
 }
 
 export function hostname(): string {
@@ -217,7 +216,7 @@ export function tmpdir(): string {
 }
 
 export function totalmem(): number {
-    return fn.window.navigator.deviceMemory * 2**30;
+    throw new TypeError('os.totalmem is not supported in fake-node');
 }
 
 export function type(): string {
@@ -239,9 +238,9 @@ export function uptime(): number {
 
 export function userInfo(): {username: string, uid: number, gid: number, shell: string, homedir: string} {
     return {
-        username: fn.username,
-        uid: 1,
-        gid: 1,
+        username: __fakeNode_process__.fakeNode.getUserFromUID(__fakeNode_process__.getuid()),
+        uid: __fakeNode_process__.getuid(),
+        gid: __fakeNode_process__.getgid(),
         shell: '/bin/sh',
         homedir: homedir(),
     }

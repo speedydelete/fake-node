@@ -1,5 +1,5 @@
 
-import {isTypedArray} from 'util/types';
+import '@fake-node/types';
 import * as process from 'process';
 import {resolve} from 'path';
 import {Buffer} from 'buffer';
@@ -29,6 +29,8 @@ function parsePathArg(arg: PathArg): string {
         } else {
             throw new TypeError(`invalid file URL: ${arg}`);
         }
+    } else {
+        throw new TypeError(`invalid path: ${arg}`);
     }
 }
 
@@ -49,7 +51,7 @@ const flags = {
     'wx+': c.O_RDONLY | c.O_WRONLY | c.O_CREAT | c.O_EXCL | c.O_TRUNC,
 }
 
-type Flag = number | keyof typeof flags;
+export type Flag = number | keyof typeof flags;
 
 function parseFlag(flag: Flag): number {
     if (typeof flag === 'string') {
@@ -85,9 +87,22 @@ function parseTimeArg(time: TimeArg): bigint {
     }
 }
 
-type DataArg = string | NodeJS.TypedArray | DataView | Iterable<any>;
+type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
-function parseDataArg(data: DataArg, encoding: NodeJS.BufferEncoding = 'utf8'): Uint8Array {
+type BufferEncoding = "ascii" | "utf8"
+  | "utf-8"
+  | "utf16le"
+  | "ucs2"
+  | "ucs-2"
+  | "base64"
+  | "latin1"
+  | "binary"
+  | "hex"
+
+
+type DataArg = string | TypedArray | DataView | Iterable<any>;
+
+function parseDataArg(data: DataArg, encoding: BufferEncoding = 'utf8'): Uint8Array {
     if (typeof data === 'string') {
         if (encoding === 'utf8') {
             return encoder.encode(data);
@@ -95,10 +110,12 @@ function parseDataArg(data: DataArg, encoding: NodeJS.BufferEncoding = 'utf8'): 
             // @ts-ignore
             return new Uint8Array(Buffer.from(data, encoding));
         }
-    } else if (isTypedArray(data) || data instanceof DataView) {
+    } else if (data instanceof DataView || data instanceof Int8Array || data instanceof Uint8Array || data instanceof Uint8ClampedArray || data instanceof Int16Array || data instanceof Uint16Array || data instanceof Int32Array || data instanceof Uint32Array || data instanceof Float32Array || data instanceof Float64Array || data instanceof BigInt64Array || data instanceof BigUint64Array) {
         return new Uint8Array(data.buffer);
     } else if (data !== null && typeof data[Symbol.iterator] === 'function') {
         return new Uint8Array(data);
+    } else {
+        throw new TypeError(`invalid binary data: ${data}`);
     }
 }
 
@@ -119,9 +136,9 @@ function parseModeArg(mode: ModeArg): number {
 }
 
 
-class BaseStats {
+abstract class BaseStats {
 
-    mode: number | bigint;
+    abstract mode: number | bigint;
 
     isBlockDevice() {
         return (Number(this.mode) & c.S_IFBLK) === c.S_IFBLK;
@@ -250,8 +267,8 @@ export class FileObject {
 
     constructor({mode, uid, gid}: FileParams) {
         this.mode = mode ?? (c.S_IRUSR | c.S_IWUSR | c.S_IRGRP | c.S_IROTH);
-        this.uid = uid ?? fn.getuid();
-        this.gid = gid ?? fn.getgid();
+        this.uid = uid ?? __fakeNode_process__.getuid();
+        this.gid = gid ?? __fakeNode_process__.getgid();
         this.birthtime = process.hrtime.bigint();
         this.atime = this.birthtime;
         this.mtime = this.birthtime;
@@ -293,8 +310,8 @@ export class FileObject {
     }
 
     chown(uid: string | number, gid: string | number): void {
-        this.uid = fn.resolveuid(uid);
-        this.gid = fn.resolvegid(gid);
+        this.uid = __fakeNode_process__.fakeNode.resolveUser(uid);
+        this.gid = __fakeNode_process__.fakeNode.resolveGroup(gid);
         this.setCtime();
     }
 
@@ -374,19 +391,19 @@ export class RegularFile extends FileObject {
 
     data: Uint8Array;
 
-    constructor(name: string, data: DataArg, {mode, encoding, ...params}: FileParams & {encoding?: string}) {
-        super(name, {mode: mode | c.S_IFREG, ...params});
+    constructor(data: DataArg, {mode = 0o6440, encoding, ...params}: FileParams & {encoding?: string}) {
+        super({mode: mode | c.S_IFREG, ...params});
         this.write(data);
     }
 
-    cp(name: string): RegularFile {
-        return new RegularFile(name ?? this.name, new Uint8Array(this.data), {mode: this.mode, uid: this.uid, gid: this.gid});
+    cp(): RegularFile {
+        return new RegularFile(new Uint8Array(this.data), {mode: this.mode, uid: this.uid, gid: this.gid});
     }
 
-    read(encoding: NodeJS.BufferEncoding, start: number, length: number): string;
+    read(encoding: BufferEncoding, start: number, length: number): string;
     read(encoding: 'uint8array', start: number, length: number): Uint8Array;
     read(encoding: 'buffer', start: number, length: number): Buffer;
-    read(encoding: NodeJS.BufferEncoding | 'uint8array' | 'buffer' = 'utf8', start: number = 0, length: number = -1): string | Uint8Array | Buffer {
+    read(encoding: BufferEncoding | 'uint8array' | 'buffer' = 'utf8', start: number = 0, length: number = -1): string | Uint8Array | Buffer {
         if (encoding === 'uint8array') {
             return this.data;
         } else if (encoding === 'buffer') {
@@ -396,9 +413,9 @@ export class RegularFile extends FileObject {
         }
     }
 
-    write(data: string, position?: number, encoding?: NodeJS.BufferEncoding): void;
-    write(data: NodeJS.TypedArray | DataView | Iterable<any>, offset?: number, length?: number): void;
-    write(data: DataArg, position?: number, encoding_or_length?: number | NodeJS.BufferEncoding): void {
+    write(data: string, position?: number, encoding?: BufferEncoding): void;
+    write(data: TypedArray | DataView | Iterable<any>, offset?: number, length?: number): void;
+    write(data: DataArg, position?: number, encoding_or_length?: number | BufferEncoding): void {
         const encoding = typeof encoding_or_length === 'string' ? encoding_or_length : 'utf8';
         const length = typeof encoding_or_length === 'number' ? encoding_or_length : -1;
         const array = parseDataArg(data, encoding);
@@ -418,10 +435,16 @@ export class Directory extends FileObject {
 
     files: Map<string, FileObject>;
 
-    constructor(name: string, files: Iterable<FileObject> | FileObject[] = [], {mode, ...params}: FileParams) {
-        super(name, {mode: mode | c.S_IFDIR, ...params});
-        const filesArray = Array.isArray(files) ? files : Array.from(files);
-        this.files = new Map(filesArray.map(file => [file.name, file]));
+    constructor(files: Map<string, FileObject>, {mode, ...params}: FileParams);
+    constructor(files: {[key: string]: FileObject}, {mode, ...params}: FileParams);
+    constructor(files: MapIterator<[string, FileObject]>, {mode, ...params}: FileParams);
+    constructor(files: Map<string, FileObject> | {[key: string]: FileObject} | MapIterator<[string, FileObject]> = new Map(), {mode = 0o6440, ...params}: FileParams) {
+        super({mode: mode | c.S_IFDIR, ...params});
+        if (files instanceof Map) {
+            this.files = files;
+        } else {
+            this.files = new Map(Object.entries(files));
+        }
     }
 
     get(path: PathArg): FileObject {
@@ -432,32 +455,12 @@ export class Directory extends FileObject {
         return file;
     }
 
-    cp(name?: string): Directory {
-        return new Directory(name ?? this.name, this.files.values(), {mode: this.mode, uid: this.uid, gid: this.gid});
+    cp(): Directory {
+        return new Directory(this.files.entries(), {mode: this.mode, uid: this.uid, gid: this.gid});
     }
 
-    cpr(name?: string): Directory {
-        return new Directory(name ?? this.name, Array.from(this.files.values()).map(file => file.cp()), {mode: this.mode, uid: this.uid, gid: this.gid});
-    }
-
-    accessf(path: PathArg, mode: number = c.F_OK) {
-        this.get(path).access(mode);
-    }
-
-    chmodf(path: PathArg, mode: string | number) {
-        this.get(path).chmod(mode);
-    }
-
-    chownf(path: PathArg, uid: string | number, gid: string | number) {
-        this.get(path).chown(uid, gid);
-    }
-
-    glob(pattern: string | string[]): string[] {
-        throw new TypeError('globs are not supported in fake-node yet');
-    }
-
-    linkf(existingPath: PathArg, newPath: PathArg) {
-        this.get(existingPath).link(newPath);
+    cpr(): Directory {
+        return new Directory(new Map(Array.from(this.files.entries()).map(([name, file]) => [name, file.cpr()])), {mode: this.mode, uid: this.uid, gid: this.gid});
     }
 
 }

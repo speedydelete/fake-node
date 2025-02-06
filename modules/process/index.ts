@@ -1,6 +1,7 @@
 
 import '@fake-node/types';
-import * as os from 'os';
+
+var window = __fakeNode_process__.fakeNode.window;
 
 export function abort(): void {
     window.close();
@@ -8,16 +9,16 @@ export function abort(): void {
    
 export const allowedNodeEnvironmentFlags = new Set<never>();
 
-export const arch = os.arch();
+export const arch = 'fake';
 
-export const argv = __fakeNode__.argvs.get(__fakeNode_pid__);
+export const argv = __fakeNode_process__.argv;
 
-export const argv0 = __fakeNode__.argv0s.get(__fakeNode_pid__);
+export const argv0 = __fakeNode_process__.argv0;
 
 export const channel = undefined;
 
 export function chdir(path: string): void {
-    __fakeNode__.chdir(__fakeNode_pid__, path);
+    __fakeNode_process__.chdir(path);
 }
 
 export const config = {};
@@ -29,22 +30,22 @@ export function constrainedMemory(): number {
 }
 
 export function availableMemory(): number {
-    return __fakeNode__.window.navigator.deviceMemory * 2**30;
+    throw new TypeError('process.availableMemory is not available in fake-node');
 }
 
 export function cpuUsage(previousValue?: {user: number, system: number}): {user: number, system: number} {
-    return {user: -1, system: -1};
+    throw new TypeError('process.cpuUsage is not available in fake-node');
 }
 
 export function cwd(): string {
-    return __fakeNode__.cwd();
+    return __fakeNode_process__.cwd;
 }
 
 export let debugPort = -1;
 
 export const disconnect = undefined;
 
-export function dlopen(module: object, filename: string, flags: typeof os.constants.dlopen[keyof typeof os.constants.dlopen] = os.constants.dlopen.RTLD_LAZY): void {
+export function dlopen(module: object, filename: string, flags: any /* typeof os.constants.dlopen[keyof typeof os.constants.dlopen] = os.constants.dlopen.RTLD_LAZY */): void {
     throw new TypeError('process.dlopen is not supported in fake-node');
 }
 
@@ -52,15 +53,15 @@ export function emitWarning(warning: string | Error, type_or_options: string | {
     throw new TypeError('process.emitWarning is not supported in fake-node');
 }
 
-export const env = __fakeNode__.env;
+export const env = __fakeNode_process__.env;
 
-export const execArgv = __fakeNode__.execArgvs.get(__fakeNode_pid__);
+export const execArgv = __fakeNode_process__.execArgv;
 
-export const execPath = __fakeNode__.execPath;
+export const execPath = __fakeNode_process__.execPath;
 
 export function exit(code: number = 0): void {
-    fn.console.log('Exit code', code);
-    fn.window.close();
+    window.console.log('Exit code', code);
+    window.close();
 }
 
 export let exitCode = 0;
@@ -100,37 +101,37 @@ export function getActiveResourcesInfo(): string[] {
 }
 
 export function getBuiltinModule(id: string): any {
-    return fn.modules[id];
+    return __fakeNode_process__.fakeNode.modules.get(id);
 }
 
 export function getegid(): number {
-    return fn.getegid();
+    return __fakeNode_process__.getegid();
 }
 
 export function geteuid(): number {
-    return fn.geteuid();
+    return __fakeNode_process__.geteuid();
 }
 
 export function getgid(): number {
-    return fn.getgid();
+    return __fakeNode_process__.getgid();
 }
 
 export function getgroups(): number[] {
-    return [fn.getgid()].concat(fn.getgroups());
+    return __fakeNode_process__.getgroups();
 }
 
 export function getuid(): number {
-    return fn.getuid();
+    return __fakeNode_process__.getuid();
 }
 
-let errorCallback = null;
+let errorCallback: null | Function = null;
 
 export function hasUncaughtExecptionCaptureCallback(): boolean {
     return errorCallback !== null;
 }
 
 export function hrtime(time?: [number, number]): [number, number] {
-    let value = fn.performance.now();
+    let value = window.performance.now();
     if (time !== undefined) {
         value -= time[0] + time[1] / 1000000;
     }
@@ -138,7 +139,7 @@ export function hrtime(time?: [number, number]): [number, number] {
 }
 
 hrtime.bigint = function(): bigint {
-    return BigInt(fn.performance.now());
+    return BigInt(window.performance.now());
 }
 
 export function initgroups(user: string | number, extraGroup: string | number): void {
@@ -149,22 +150,22 @@ export function kill(pid: number, signal: string | number): void {
     throw new TypeError('process.kill is not supported in fake-node');
 }
 
-export function loadEnvFile(path: string) {
-    fn.loadEnvFile(path);
+export function loadEnvFile(path: string): void {
+    __fakeNode_process__.fakeNode.loadEnvFile(path);
 }
 
-export const mainModule = fn.currentFile;
+export const mainModule = __fakeNode_process__.path === '' ? undefined : __fakeNode_process__.path;
 
 export function memoryUsage(): {rss: number, heapTotal: number, heapUsed: number, external: number, arrayBuffers: number} {
     throw new TypeError('process.memoryUsage is not supported in fake-node');
 }
 
 memoryUsage.rss = function(): number {
-    throw new TypeError('process.memoryUsage is not supported in fake-node');
+    throw new TypeError('process.memoryUsage.rss is not supported in fake-node');
 }
 
 export function nextTick(callback: Function, ...args: any[]): void {
-    fn.setTimeout(callback, 0, ...args);
+    window.setTimeout(callback, 0, ...args);
 }
 
 export const noDeprecation = false;
@@ -177,7 +178,7 @@ export const permission = {
 
 };
 
-export function ref(maybeRefable: any) {
+export function ref(maybeRefable: any): void {
     throw new TypeError('process.ref is not supported in fake-node');
 }
 
@@ -195,23 +196,23 @@ export const release = {
 };
 
 export function setegid(id: string | number): void {
-    fn.setegid(id);
+    __fakeNode_process__.setegid(id);
 }
 
 export function seteuid(id: string | number): void {
-    fn.seteuid(id);
+    __fakeNode_process__.seteuid(id);
 }
 
 export function setgid(id: string | number): void {
-    fn.setgid(id);
+    __fakeNode_process__.setgid(id);
 }
 
 export function setgroups(groups: (string | number)[]): void {
-    fn.setgroups(groups);
+    __fakeNode_process__.setgroups(groups);
 }
 
 export function setuid(id: string | number): void {
-    fn.setuid(id);
+    __fakeNode_process__.setuid(id);
 }
 
 export function setSourceMapsEnabledVal(val: boolean): void {
@@ -220,9 +221,9 @@ export function setSourceMapsEnabledVal(val: boolean): void {
 
 export function setUncaughtExceptionCaptureCallback(func: Function | null): void {
     if (errorCallback !== null) {
-        fn.removeErrorCallback(func);
+        __fakeNode_process__.fakeNode.removeErrorCallback(func);
     }
-    errorCallback = fn.addErrorCallback(func);
+    errorCallback = __fakeNode_process__.fakeNode.addErrorCallback(func);
 }
 
 export const sourceMapsEnabled = false;
@@ -243,14 +244,14 @@ export function umask(mask?: string | number): void {
     throw new TypeError('process.umask is not supported in fake-node');
 }
 
-export function unref(maybeRefable: any) {
+export function unref(maybeRefable: any): void {
     throw new TypeError('process.unref is not supported in fake-node');
 }
 
 export function uptime(): number {
-    return fn.performance.now() / 1000;
+    return __fakeNode_process__.fakeNode.window.performance.now() / 1000;
 }
 
-export const version = os.version();
+export const version = __fakeNode_process__.fakeNode.constructor.version;
 
 export const versions = [version];
