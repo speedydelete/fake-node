@@ -1,14 +1,35 @@
 
 import * as module_os from './os';
 import * as module_process from './process';
+import * as module_punycode from 'punycode/';
+import * as module_querystring from './querystring';
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
 
 
-const DEFAULT_GLOBALS = {AbortController, Blob, ByteLengthQueuingStrategy, atob, BroadcastChannel, btoa, clearInterval, clearTimeout, CloseEvent, CompressionStream, console, CountQueuingStrategy, Crypto, crypto, CryptoKey, CustomEvent, DecompressionStream, Event, EventSource, EventTarget, fetch, FormData, Headers, localStorage, MessageChannel, MessageEvent, MessagePort, Navigator, navigator, PerformanceEntry, PerformanceMark, PerformanceMeasure, PerformanceObserver, PerformanceObserverEntryList, performance, queueMicrotask, ReadableByteStreamController, Response, Request, sessionStorage, setInterval, setTimeout, Storage, structuredClone, SubtleCrypto, DOMException, TextDecoder, TextDecoderStream, TextEncoder, TextEncoderStream, TransformStreamDefaultController, URL, URLSearchParams, WebAssembly, WebSocket, WritableStream, WritableStreamDefaultController, WritableStreamDefaultWriter};
+const DEFAULT_GLOBALS = Object.defineProperties({}, Object.fromEntries(WEB_ONLY_GLOBALS.map((name: string) => [name, {get(): void {throw new ReferenceError(`${name} is not defined`);}}])));
 
-for (const name of WEB_ONLY_GLOBALS) {
-    Object.defineProperty(DEFAULT_GLOBALS, name, {get: () => {throw new ReferenceError(`${name} is not defined`)}});
-}
+const BUILTIN_MODULES: [string, any][] = [
+    ['os', module_os],
+    ['process', module_process],
+    ['querystring', module_querystring],
+    ['punycode', module_punycode],
+];
+
+const DEFAULT_ENV = {
+    PATH: '/usr/local/bin:/usr/bin:/bin',
+    SHLVL: '1',
+    SHELL: '/bin/bash',
+    TERM: 'none',
+    PS1: '',
+    PS2: '> ',
+    HISTFILE: '~/.bash_history',
+    EDITOR: 'vim',
+    VISUAL: 'vim',
+    LANG: 'en_US.utf8',
+    HOSTNAME: 'fake-node',
+    TMPDIR: '/tmp',
+};
+
 
 export class Process {
 
@@ -70,20 +91,7 @@ export class FakeNode {
     id: number;
     globalName: string;
 
-    globalenv: {[key: string]: string} = {
-        PATH: '/usr/local/bin:/usr/bin:/bin',
-        SHLVL: '1',
-        SHELL: '/bin/bash',
-        TERM: 'none',
-        PS1: '',
-        PS2: '> ',
-        HISTFILE: '~/.bash_history',
-        EDITOR: 'vim',
-        VISUAL: 'vim',
-        LANG: 'en_US.utf8',
-        HOSTNAME: 'fake-node',
-        TMPDIR: '/tmp',
-    };
+    globalenv: {[key: string]: string} = DEFAULT_ENV;
     
     modules: Map<string, unknown> = new Map();
     
@@ -106,17 +114,14 @@ export class FakeNode {
         Object.assign(this.globals, DEFAULT_GLOBALS);
         window.addEventListener('error', ({error}) => this.onError(error));
         window.addEventListener('unhandledrejection', ({reason}) => reason instanceof Error ? this.onError(reason) : this.onError(new Error(String(reason))));
+        for (const [name, module] of BUILTIN_MODULES) {
+            this.addModuleFromValue(name, module);
+            this.addModuleFromValue('node:' + name, module);
+            this.addModuleFromValue('fake-node:' + name, module);
+        }
     }
 
     require(module: string): unknown {
-        if (module.includes(':')) {
-            const split = module.split(':');
-            const ns = split[0];
-            module = split[1];
-            if (ns !== 'fake-node' && ns !== 'node') {
-                throw new TypeError(`cannot find namespace ${ns}`);
-            }
-        }
         if (this.modules.has(module)) {
             return this.modules.get(module);
         } else {

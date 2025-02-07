@@ -1,6 +1,6 @@
 
 import '@fake-node/types';
-import * as process from 'process';
+import * as process from './process';
 import {resolve} from 'path';
 import {Buffer} from 'buffer';
 

@@ -149,8 +149,8 @@ export function kill(pid: number, signal: string | number): void {
     throw new TypeError('process.kill is not supported in fake-node');
 }
 
-export function loadEnvFile(path: string): void {
-    __fakeNode_process__.fakeNode.loadEnvFile(path);
+export function loadEnvFile(path: string = './.env'): void {
+    throw new TypeError('process.loadEnvFile is not supported in fake-node');
 }
 
 export const mainModule = __fakeNode_process__.path === '' ? undefined : __fakeNode_process__.path;
