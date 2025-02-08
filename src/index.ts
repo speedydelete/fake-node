@@ -4,6 +4,10 @@ import * as module_os from './os';
 import * as module_util from './util';
 import * as module_querystring from './querystring';
 import * as module_punycode from 'punycode/';
+import * as module_path from './path';
+import * as module_buffer from './buffer';
+import {FileSystem} from './base_fs';
+import {module_fs} from './fs';
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
 
 
@@ -115,17 +119,16 @@ export class FakeNode {
     id: number;
     globalName: string;
 
-    globalenv: {[key: string]: string} = DEFAULT_ENV;
-    
-    modules: Map<string, unknown> = new Map();
-    
-    globals: {[key: string]: unknown};
+    fs: FileSystem;
 
     processes: Map<number, Process> = new Map();
     nextPid: number = 3;
 
+    globalenv: {[key: string]: string} = DEFAULT_ENV;
+    
+    modules: Map<string, unknown> = new Map();
+    
     window: Window = window;
-
     errorCallbacks: (Function | undefined)[] = [];
 
     constructor() {
@@ -136,11 +139,10 @@ export class FakeNode {
         this.globalName = '__fakeNode_' + this.id + '__';
         // @ts-ignore
         globalThis[this.globalName] = this;
-        this.globals = {__fakeNode__: this};
-        Object.assign(this.globals, DEFAULT_GLOBALS);
+        this.fs = new FileSystem();
         window.addEventListener('error', ({error}) => this.onError(error));
         window.addEventListener('unhandledrejection', ({reason}) => reason instanceof Error ? this.onError(reason) : this.onError(new Error(String(reason))));
-        for (const [name, module] of BUILTIN_MODULES) {
+        for (const [name, module] of BUILTIN_MODULES.concat(['fs', new module_fs(this.fs)])) {
             this.addModuleFromValue(name, module);
             this.addModuleFromValue('node:' + name, module);
             this.addModuleFromValue('fake-node:' + name, module);
@@ -193,12 +195,13 @@ export class FakeNode {
         if (process === undefined) {
             throw new TypeError(`nonexistent PID in FakeNode.getGlobals call: ${pid}. If you do not know why this occured, it is probably a bug in fake-node.`);
         }
-        let scope: {[key: string]: unknown} = {};
-        Object.assign(scope, this.globals);
+        let scope = Object.assign({
+            __fakeNode__: this,
+            __fakeNode_process__: process,
+            require: ((module: string) => this.require(module, pid)).bind(this)
+        }, DEFAULT_GLOBALS);
         scope.global = scope;
         scope.globalThis = scope;
-        scope.__fakeNode_process__ = process;
-        scope.require = ((module: string) => this.require(module, pid)).bind(this);
         if (process.path !== '') {
             const pathParts = process.path.split('/');
             scope.__dirname = pathParts.slice(0, -1).join('/');
