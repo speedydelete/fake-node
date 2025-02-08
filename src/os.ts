@@ -198,16 +198,7 @@ export function networkInterfaces(): {[key: string]: {address: string, netmask: 
 }
 
 export function platform(): string {
-    const data = __fakeNode__.window.navigator.userAgent.slice('Mozilla/5.0 ('.length, navigator.userAgent.indexOf(')'));
-    if (data.includes('Windows')) {
-        return 'win32';
-    } else if (data.includes('Linux')) {
-        return 'linux';
-    } else if (data.includes('Mac')) {
-        return 'darwin';
-    } else {
-        return 'unknown';
-    }
+    return __fakeNode__.getPlatform();
 }
 
 export function release(): string {

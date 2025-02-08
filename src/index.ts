@@ -1,22 +1,23 @@
 
-import * as defaultProcessObject from './process';
-const module_os = import('./os.js');
-const module_punycode = import('punycode/');
-const module_querystring = import('./querystring.js');
+import * as baseProcessObject from './process';
+import * as module_os from './os';
+import * as module_util from './util';
+import * as module_querystring from './querystring';
+import * as module_punycode from 'punycode/';
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
 
 
 type BaseProcessObject = typeof import ('./process');
 interface ProcessObject extends BaseProcessObject {
-    argv: string[],
-    argv0: string,
-    env: {[key: string]: string},
-    execArgv: string[],
-    execPath: string,
-    mainModule: string,
-    platform: string,
-    version: string,
-    versions: string[],
+    argv: string[];
+    argv0: string;
+    env: {[key: string]: string};
+    execArgv: string[];
+    execPath: string;
+    mainModule: string;
+    platform: string;
+    version: string;
+    versions: {[key: string]: string};
 }
 
 
@@ -24,6 +25,7 @@ const DEFAULT_GLOBALS = Object.defineProperties({}, Object.fromEntries(WEB_ONLY_
 
 const BUILTIN_MODULES: [string, any][] = [
     ['os', module_os],
+    ['util', module_util],
     ['querystring', module_querystring],
     ['punycode', module_punycode],
 ];
@@ -60,7 +62,7 @@ export class Process {
     argv: string[] = [];
     argv0: string = '';
     execArgv: string[] = [];
-    execArgv0: string = '/usr/bin/local/node';
+    execPath: string = '/usr/bin/local/node';
 
     path: string;
     module: false | string;
@@ -96,11 +98,20 @@ export class Process {
 }
 
 
+if (!('__fakeNode_next_instance_id__' in globalThis)) {
+    // @ts-ignore
+    globalThis.__fakeNode_next_instance_id__ = 0;
+}
+
+
 export class FakeNode {
 
     version: string = '0.3.0';
+    versions: {[key: string]: string} = {
+        'fake-node': '0.3.0',
+        'punycode': '2.3.1',
+    };
 
-    static nextId: number = 0;
     id: number;
     globalName: string;
 
@@ -118,8 +129,10 @@ export class FakeNode {
     errorCallbacks: (Function | undefined)[] = [];
 
     constructor() {
-        this.id = FakeNode.nextId;
-        FakeNode.nextId++;
+        // @ts-ignore
+        this.id = globalThis.__fakeNode_next_instance_id;
+        // @ts-ignore
+        globalThis.__fakeNode_next_instance_id++;
         this.globalName = '__fakeNode_' + this.id + '__';
         // @ts-ignore
         globalThis[this.globalName] = this;
@@ -134,9 +147,11 @@ export class FakeNode {
         }
     }
 
-    require(module: string): unknown {
+    require(module: string, pid: number): unknown {
         if (this.modules.has(module)) {
             return this.modules.get(module);
+        } else if (module === 'process' || module === 'node:process' || module === 'fake-node:process') {
+            return this.getProcessObject(pid);
         } else {
             throw new Error(`cannot find module '${module}'`);
         }
@@ -156,20 +171,34 @@ export class FakeNode {
     }
 
     getProcessObject(pid: number): ProcessObject {
-        
+        let out = Object.create(baseProcessObject);
+        const process = this.processes.get(pid);
+        if (process === undefined) {
+            throw new TypeError(`nonexistent PID in FakeNode.getProcessObject call: ${pid}. If you do not know why this occured, it is probably a bug in fake-node.`);
+        }
+        out.argv = process.argv;
+        out.argv0 = process.argv0;
+        out.env = process.env;
+        out.execArgv = process.execArgv;
+        out.execPath = process.execPath;
+        out.mainModule = '';
+        out.platform = this.getPlatform();
+        out.version = this.version;
+        out.versions = this.versions;
+        return out;
     }
 
     getGlobals(pid: number): object {
         const process = this.processes.get(pid);
         if (process === undefined) {
-            throw new TypeError(`nonexistent PID in FakeNode.getGlobals call: ${pid}. If you do not know why this occured, it is probably a bug in fake-node. Please report it at https://github.com/speedydelete/fake-node/issues.`);
+            throw new TypeError(`nonexistent PID in FakeNode.getGlobals call: ${pid}. If you do not know why this occured, it is probably a bug in fake-node.`);
         }
         let scope: {[key: string]: unknown} = {};
         Object.assign(scope, this.globals);
         scope.global = scope;
         scope.globalThis = scope;
         scope.__fakeNode_process__ = process;
-        scope.require = this.require.bind(this);
+        scope.require = ((module: string) => this.require(module, pid)).bind(this);
         if (process.path !== '') {
             const pathParts = process.path.split('/');
             scope.__dirname = pathParts.slice(0, -1).join('/');

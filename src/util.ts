@@ -136,7 +136,7 @@ export function inherits(constructor: Function, superConstructor: Function) {
 type InspectOptions = {};
 
 export function inspect(value: unknown, options: InspectOptions = {}): string {
-    return String(value);
+    throw new TypeError('util.inspect is not supported in fake-node');
 }
 
 export function isDeepStrictEqual(val1: unknown, val2: unknown): boolean {
@@ -144,7 +144,10 @@ export function isDeepStrictEqual(val1: unknown, val2: unknown): boolean {
         if (!(typeof val2 === 'object' && val2 !== null) && !(typeof val2 === 'function')) {
             return false;
         }
-        if ((val1[Symbol.toStringTag] !== val2[Symbol.toStringTag]) || Object.getPrototypeOf(val1) !== Object.getPrototypeOf(val2)) {
+        if ((Symbol.toStringTag in val1 && Symbol.toStringTag in val2) && val1[Symbol.toStringTag] !== val2[Symbol.toStringTag]) {
+            return false;
+        }
+        if (Object.getPrototypeOf(val1) !== Object.getPrototypeOf(val2)) {
             return false;
         }
         if (val1 instanceof Map) {
@@ -176,12 +179,13 @@ export function isDeepStrictEqual(val1: unknown, val2: unknown): boolean {
             }
             return true;
         }
-        const properties = (Object.getOwnPropertyNames(val1) as (string | symbol)[]).concat(Object.getOwnPropertySymbols(val1));
+        const properties = Reflect.ownKeys(val1);
         const val2Properties = (Object.getOwnPropertyNames(val2) as (string | symbol)[]).concat(Object.getOwnPropertySymbols(val2));
         if (!properties.every((prop: string | symbol) => val2Properties.includes(prop))) {
             return false;
         }
         for (const property of properties) {
+            // @ts-ignore
             if (!isDeepStrictEqual(val1[property], val2[property])) {
                 return false;
             }
@@ -211,15 +215,14 @@ export const types = {
     },
 
     isArgumentsObject(value: unknown): value is typeof arguments {
-        if (typeof value !== 'object' || value === null || !Object.hasOwn(value, 'length') || !Object.hasOwn(value, 'callee')) {
+        if (typeof value !== 'object' || value === null || !('length' in value) || !('callee' in value)) {
             return false;
         }
         try {
-            // @ts-ignore
             value.callee;
             return false;
         } catch (error) {
-            if (error.message === "TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them" || error.message === "TypeError: 'arguments', 'callee', and 'caller' cannot be accessed in this context.") {
+            if (error instanceof Error && (error.message === "TypeError: 'caller', 'callee', and 'arguments' properties may not be accessed on strict mode functions or the arguments objects for calls to them" || error.message === "TypeError: 'arguments', 'callee', and 'caller' cannot be accessed in this context.")) {
                 return types.isProxy(value) !== true;
             } else {
                 throw error;
