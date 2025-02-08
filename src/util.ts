@@ -2,14 +2,13 @@
 /// <reference path="./in_fake_node.d.ts" />
 import {emitWarning} from './process';
 
-
 type TypedArray = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array;
-type Callback = (error: Error | null, value: any) => void;
+
+type Callback = (error: Error | null, value: unknown) => void;
 
 function shouldBeCloneable(value: unknown): boolean {
     return value?.constructor === Object || value === undefined || value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' || typeof value === 'bigint' || Array.isArray(value) || value instanceof ArrayBuffer || value instanceof Boolean || value instanceof DataView || value instanceof Date || value instanceof Error || value instanceof Map || value instanceof Number || value instanceof RegExp || value instanceof Set || value instanceof String || value instanceof Object.getPrototypeOf(Uint8Array) || value instanceof AudioData || value instanceof Blob || value instanceof CryptoKey || value instanceof DOMException || value instanceof DOMMatrix || value instanceof DOMMatrixReadOnly || value instanceof DOMPoint || value instanceof DOMPointReadOnly || value instanceof DOMQuad || value instanceof DOMRect || value instanceof DOMRectReadOnly || value instanceof EncodedAudioChunk || value instanceof EncodedVideoChunk || value instanceof File || value instanceof FileList || value instanceof FileSystemDirectoryHandle || value instanceof FileSystemFileHandle || value instanceof FileSystemHandle || value instanceof ImageBitmap || value instanceof ImageData || value instanceof RTCCertificate || value instanceof RTCEncodedAudioFrame || value instanceof RTCEncodedVideoFrame || value instanceof VideoFrame || value instanceof WebTransportError;
 }
-
 
 export function callbackify(original: (...args: any[]) => Promise<any>): (...args: [...any[], Callback]) => void {
     return function(...args: [...any[], Callback]): void {
@@ -133,7 +132,9 @@ export function inherits(constructor: Function, superConstructor: Function) {
     Object.setPrototypeOf(constructor.prototype, superConstructor.prototype);
 }
 
-type InspectOptions = {};
+interface InspectOptions {
+
+}
 
 export function inspect(value: unknown, options: InspectOptions = {}): string {
     throw new TypeError('util.inspect is not supported in fake-node');
@@ -202,6 +203,114 @@ export function isDeepStrictEqual(val1: unknown, val2: unknown): boolean {
     } else {
         return Object.is(val1, val2);
     }
+}
+
+export class MIMEType {
+
+    constructor() {
+        throw new TypeError('util.MIMEType is not supported in fake-node');
+    }
+
+}
+
+export class MIMEParams {
+
+    constructor() {
+        throw new TypeError('util.MIMEParams is not supported in fake-node');
+    }
+
+}
+
+interface ParseArgsConfig {
+    args?: string[];
+    options: {
+        [key: string]: {
+            short?: string;
+        } & (({multiple: false} & ({
+                type: 'string';
+                default?: string;
+            } | {
+                type: 'boolean';
+                default?: boolean;
+            })) | ({multiple: true} & ({
+                type: 'string';
+                default?: string[];
+            } | {
+                type: 'boolean';
+                default?: boolean[];
+            }))
+        );
+    };
+    strict?: boolean;
+    allowPositionals?: boolean;
+    allowNegative?: boolean;
+    tokens?: boolean;
+}
+
+export function parseArgs(config?: ParseArgsConfig): {values: {[key: string]: string | boolean}, positionals: string[], tokens?: object[]} {
+    throw new TypeError('util.parseArgs is not supported in fake-node');
+}
+
+export function parseEnv(content: string): {[key: string]: string} {
+    throw new TypeError('util.parseEnv is not supported in fake-node');
+}
+
+export function promisify(original: ((...args: [...any[], Callback]) => void) & {[func: typeof promisify.custom]: (...args: any[]) => Promise<any>}): (...args: any[]) => Promise<any> {
+    if (promisify.custom in original) {
+        return original[promisify.custom];
+    }
+    return function(...args: any[]): Promise<any> {
+        return new Promise((resolve, reject) => {
+            original(args, (error: Error | null, value: unknown) => {
+                if (error instanceof Error) {
+                    reject(error);
+                } else {
+                    resolve(value);
+                }
+            });
+        });
+    };
+}
+promisify.custom = Symbol.for('nodejs.util.promisify.custom');
+
+export function stripVTControlCharacters(str: string): string {
+    throw new TypeError('util.stripVTControlCharacters is not supported in fake-node');
+}
+
+export function styleText(format: string | Array<unknown>, text: string, options?: {validateStream: boolean, stream: unknown}): string {
+    throw new TypeError('util.styleText is not supported in fake-node');
+}
+
+const TextDecoder_ = TextDecoder;
+const TextEncoder_ = TextEncoder;
+export {
+    TextDecoder_ as TextDecoder,
+    TextEncoder_ as TextEncoder,
+};
+
+export function toUSVString(string: string): string {
+    let out = '';
+    for (let i = 0; i < string.length; i++) {
+        const code = string.charCodeAt(i);
+        if (code >= 0xD800 && code < 0xDFFF) {
+            out += '\uFFFD';
+        } else {
+            out += string[i];
+        }
+    }
+    return out;
+}
+
+export function transferableAbortController(): AbortController {
+    throw new TypeError('util.transferableAbortController is not supported in fake-node');
+}
+
+export function transferableAbortSignal(): AbortSignal {
+    throw new TypeError('util.transferableAbortSignal is not supported in fake-node');
+}
+
+export function aborted(signal: AbortSignal, resource: object): Promise<undefined> {
+    throw new TypeError('util.aborted is not supported in fake-node');
 }
 
 export const types = {
