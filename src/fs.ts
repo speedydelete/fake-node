@@ -1,8 +1,8 @@
 
-import '@fake-node/types';
+/// <reference path="./in_fake_node.d.ts" />
 import * as process from './process';
-import {resolve} from 'path';
-import {Buffer} from 'buffer';
+import {resolve} from './path';
+import {Buffer} from './buffer';
 
 
 const F_OK = 0;

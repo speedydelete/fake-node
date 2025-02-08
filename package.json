@@ -6,6 +6,7 @@
   "author": "speedydelete",
   "type": "commonjs",
   "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
     "/src",
     "/lib"
@@ -26,7 +27,6 @@
     "punycode": "^2.3.1"
   },
   "devDependencies": {
-    "@fake-node/types": "^0.4.1",
     "@types/assert": "^1.5.11",
     "@types/punycode": "^2.1.4",
     "typescript": "^5.7.3"

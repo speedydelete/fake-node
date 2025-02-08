@@ -1,18 +1,13 @@
 
-import '@fake-node/types';
-import {platform as _platform} from './os';
+/// <reference path="./in_fake_node.d.ts" />
 
 export function abort(): void {
     __fakeNode__.window.close();
 }
-   
+
 export const allowedNodeEnvironmentFlags = new Set<never>();
 
 export const arch = 'fake';
-
-export const argv = __fakeNode_process__.argv;
-
-export const argv0 = __fakeNode_process__.argv0;
 
 export const channel = undefined;
 
@@ -51,12 +46,6 @@ export function dlopen(module: object, filename: string, flags: any /* typeof os
 export function emitWarning(warning: string | Error, type_or_options: string | {type?: string, code?: string, ctor?: Function, detail?: string}, code?: string, ctor: Function = emitWarning, detail?: string): void {
     throw new TypeError('process.emitWarning is not supported in fake-node');
 }
-
-export const env = __fakeNode_process__.env;
-
-export const execArgv = __fakeNode_process__.execArgv;
-
-export const execPath = __fakeNode_process__.execPath;
 
 export function exit(code: number = 0): void {
     window.console.log('Exit code', code);
@@ -153,8 +142,6 @@ export function loadEnvFile(path: string = './.env'): void {
     throw new TypeError('process.loadEnvFile is not supported in fake-node');
 }
 
-export const mainModule = __fakeNode_process__.path === '' ? undefined : __fakeNode_process__.path;
-
 export function memoryUsage(): {rss: number, heapTotal: number, heapUsed: number, external: number, arrayBuffers: number} {
     throw new TypeError('process.memoryUsage is not supported in fake-node');
 }
@@ -182,8 +169,6 @@ export function ref(maybeRefable: any): void {
 }
 
 export const pid = 1;
-
-export const platform = _platform();
 
 export const ppid = 1;
 
@@ -258,7 +243,3 @@ export function unref(maybeRefable: any): void {
 export function uptime(): number {
     return __fakeNode_process__.fakeNode.window.performance.now() / 1000;
 }
-
-export const version = __fakeNode__.version;
-
-export const versions = [version];

@@ -1,5 +1,5 @@
 
-import '@fake-node/types';
+/// <reference path="./in_fake_node.d.ts" />
 
 export const EOL = '\n';
 

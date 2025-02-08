@@ -1,16 +1,29 @@
 
-import * as module_os from './os';
-import * as module_process from './process';
-import * as module_punycode from 'punycode/';
-import * as module_querystring from './querystring';
+import * as defaultProcessObject from './process';
+const module_os = import('./os.js');
+const module_punycode = import('punycode/');
+const module_querystring = import('./querystring.js');
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
+
+
+type BaseProcessObject = typeof import ('./process');
+interface ProcessObject extends BaseProcessObject {
+    argv: string[],
+    argv0: string,
+    env: {[key: string]: string},
+    execArgv: string[],
+    execPath: string,
+    mainModule: string,
+    platform: string,
+    version: string,
+    versions: string[],
+}
 
 
 const DEFAULT_GLOBALS = Object.defineProperties({}, Object.fromEntries(WEB_ONLY_GLOBALS.map((name: string) => [name, {get(): void {throw new ReferenceError(`${name} is not defined`);}}])));
 
 const BUILTIN_MODULES: [string, any][] = [
     ['os', module_os],
-    ['process', module_process],
     ['querystring', module_querystring],
     ['punycode', module_punycode],
 ];
@@ -129,6 +142,23 @@ export class FakeNode {
         }
     }
 
+    getPlatform(): string {
+        const data = navigator.userAgent.slice('Mozilla/5.0 ('.length, navigator.userAgent.indexOf(')'));
+        if (data.includes('Windows')) {
+            return 'win32';
+        } else if (data.includes('Linux')) {
+            return 'linux';
+        } else if (data.includes('Mac')) {
+            return 'darwin';
+        } else {
+            return 'unknown';
+        }
+    }
+
+    getProcessObject(pid: number): ProcessObject {
+        
+    }
+
     getGlobals(pid: number): object {
         const process = this.processes.get(pid);
         if (process === undefined) {
@@ -139,7 +169,7 @@ export class FakeNode {
         scope.global = scope;
         scope.globalThis = scope;
         scope.__fakeNode_process__ = process;
-        scope.require = Object.create(this.require);
+        scope.require = this.require.bind(this);
         if (process.path !== '') {
             const pathParts = process.path.split('/');
             scope.__dirname = pathParts.slice(0, -1).join('/');
