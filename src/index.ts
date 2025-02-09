@@ -6,7 +6,7 @@ import * as module_querystring from './querystring';
 import * as module_punycode from 'punycode/';
 import * as module_path from './path';
 import * as module_buffer from './buffer';
-import {FileSystem} from './base_fs';
+import {FileSystem} from './_fs';
 import {module_fs} from './fs';
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
 

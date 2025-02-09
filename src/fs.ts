@@ -1,5 +1,7 @@
 
-import {type FileSystem} from './base_fs';
+import {type FileSystem} from './_fs';
+
+export {constants} from './_fs';
 
 export class module_fs {
 
