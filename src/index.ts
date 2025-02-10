@@ -1,14 +1,17 @@
 
 import * as baseProcessObject from './process';
+import {fileDescriptors, FileSystem, DEFAULT_FILES} from './_fs';
 import * as module_os from './os';
 import * as module_util from './util';
 import * as module_querystring from './querystring';
 import * as module_punycode from 'punycode/';
 import * as module_path from './path';
 import * as module_buffer from './buffer';
-import {FileSystem} from './_fs';
-import {module_fs} from './fs';
+import * as module_fs from './fs';
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
+
+
+const IS_BROWSER = (('window' in globalThis && window === globalThis && 'document' in window && 'navigator' in window && 'window' in window && window.window === window) || ('self' in globalThis && self === globalThis && typeof self.postMessage === 'function' && 'self' in self && self.self === self));
 
 
 type BaseProcessObject = typeof import ('./process');
@@ -25,13 +28,14 @@ interface ProcessObject extends BaseProcessObject {
 }
 
 
-const DEFAULT_GLOBALS = Object.defineProperties({}, Object.fromEntries(WEB_ONLY_GLOBALS.map((name: string) => [name, {get(): void {throw new ReferenceError(`${name} is not defined`);}}])));
-
 const BUILTIN_MODULES: [string, any][] = [
     ['os', module_os],
     ['util', module_util],
     ['querystring', module_querystring],
     ['punycode', module_punycode],
+    ['path', module_path],
+    ['buffer', module_buffer],
+    ['fs', module_fs],
 ];
 
 const DEFAULT_ENV = {
@@ -120,6 +124,7 @@ export class FakeNode {
     globalName: string;
 
     fs: FileSystem;
+    fileDescriptors: (string | null)[] = fileDescriptors;
 
     processes: Map<number, Process> = new Map();
     nextPid: number = 3;
@@ -127,8 +132,10 @@ export class FakeNode {
     globalenv: {[key: string]: string} = DEFAULT_ENV;
     
     modules: Map<string, unknown> = new Map();
-    
-    window: Window = window;
+
+    // @ts-ignore
+    window: Window;
+
     errorCallbacks: (Function | undefined)[] = [];
 
     constructor() {
@@ -139,10 +146,15 @@ export class FakeNode {
         this.globalName = '__fakeNode_' + this.id + '__';
         // @ts-ignore
         globalThis[this.globalName] = this;
-        this.fs = new FileSystem();
+        if (IS_BROWSER) {
+            this.window = window;
+        } else {
+            Object.defineProperty(this, 'window', {get() {throw new ReferenceError('fake-node is not running in a browser')}});
+        }
+        this.fs = new FileSystem(DEFAULT_FILES, {uid: 0, gid: 0});
         window.addEventListener('error', ({error}) => this.onError(error));
         window.addEventListener('unhandledrejection', ({reason}) => reason instanceof Error ? this.onError(reason) : this.onError(new Error(String(reason))));
-        for (const [name, module] of BUILTIN_MODULES.concat(['fs', new module_fs(this.fs)])) {
+        for (const [name, module] of BUILTIN_MODULES) {
             this.addModuleFromValue(name, module);
             this.addModuleFromValue('node:' + name, module);
             this.addModuleFromValue('fake-node:' + name, module);
@@ -199,7 +211,7 @@ export class FakeNode {
             __fakeNode__: this,
             __fakeNode_process__: process,
             require: ((module: string) => this.require(module, pid)).bind(this)
-        }, DEFAULT_GLOBALS);
+        }, Object.defineProperties({}, Object.fromEntries(WEB_ONLY_GLOBALS.map((name: string) => [name, {get(): void {throw new ReferenceError(`${name} is not defined`);}}]))));
         scope.global = scope;
         scope.globalThis = scope;
         if (process.path !== '') {

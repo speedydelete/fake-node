@@ -1,8 +1,7 @@
 
-/// <reference path="./in_fake_node.d.ts" />
 import * as process from './process';
-import {resolve} from './path';
-import {Buffer} from './buffer';
+import {normalize, resolve} from './path';
+import {Buffer, type BufferEncoding} from './buffer';
 
 
 const F_OK = 0;
@@ -60,19 +59,12 @@ export const constants = {F_OK, X_OK, W_OK, R_OK, COPYFILE_EXCL, COPYFILE_FICLON
 
 const encoder = new TextEncoder();
 
-let fileDescriptors: string[] = [];
 
+export type PathArg = string | URL | Buffer;
 
-type PathArg = string | URL | Buffer | number;
-
-function parsePathArg(arg: PathArg): string {
+export function parsePathArg(arg: PathArg): string {
     if (typeof arg === 'string') {
         return resolve(arg);
-    } else if (typeof arg === 'number') {
-        if (fileDescriptors[arg] === null) {
-            throw new TypeError(`file descriptor ${arg} is closed`);
-        }
-        return fileDescriptors[arg];
     } else if (arg instanceof Buffer) {
         return resolve(arg.toString('utf8'));
     } else if (arg instanceof URL) {
@@ -105,7 +97,7 @@ const flags = {
 
 export type Flag = number | keyof typeof flags;
 
-function parseFlag(flag: Flag): number {
+export function parseFlag(flag: Flag): number {
     if (typeof flag === 'string') {
         return flags[flag];
     } else {
@@ -115,7 +107,7 @@ function parseFlag(flag: Flag): number {
 
 export type TimeArg = number | string | bigint | Date;
 
-function parseTimeArg(time: TimeArg): bigint {
+export function parseTimeArg(time: TimeArg): bigint {
     if (typeof time === 'bigint') {
         return time;
     } else if (typeof time === 'number') {
@@ -139,22 +131,12 @@ function parseTimeArg(time: TimeArg): bigint {
     }
 }
 
+
 type TypedArray = Int8Array | Uint8Array | Uint8ClampedArray | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array;
 
-type BufferEncoding = "ascii" | "utf8"
-  | "utf-8"
-  | "utf16le"
-  | "ucs2"
-  | "ucs-2"
-  | "base64"
-  | "latin1"
-  | "binary"
-  | "hex"
+export type DataArg = string | TypedArray | DataView | Iterable<any>;
 
-
-type DataArg = string | TypedArray | DataView | Iterable<any>;
-
-function parseDataArg(data: DataArg, encoding: BufferEncoding = 'utf8'): Uint8Array {
+export function parseDataArg(data: DataArg, encoding: BufferEncoding = 'utf8'): Uint8Array {
     if (typeof data === 'string') {
         if (encoding === 'utf8') {
             return encoder.encode(data);
@@ -175,7 +157,7 @@ export type ModeArg = string | number;
 
 const STRING_MODE_ARG_REGEX = /^([r-][w-][x-]){3}$/;
 
-function parseModeArg(mode: ModeArg): number {
+export function parseModeArg(mode: ModeArg): number {
     if (typeof mode === 'number') {
         return mode;
     } else {
@@ -273,7 +255,7 @@ export class BigIntStats extends BaseStats {
 }
 
 
-export class StatFs {
+export class StatsFs {
 
     bavail: number = -1;
     bfree: number = -1;
@@ -285,8 +267,7 @@ export class StatFs {
 
 }
 
-
-export class BigIntStatFs {
+export class BigIntStatsFs {
 
     bavail: bigint = -1n;
     bfree: bigint = -1n;
@@ -301,8 +282,8 @@ export class BigIntStatFs {
 
 export interface FileParams {
     mode?: number;
-    uid?: number;
-    gid?: number;
+    uid: number;
+    gid: number;
 }
 
 export class FileObject {
@@ -318,9 +299,9 @@ export class FileObject {
     rdev: number = -1;
 
     constructor({mode, uid, gid}: FileParams) {
-        this.mode = mode ?? (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-        this.uid = uid ?? __fakeNode_process__.uid;
-        this.gid = gid ?? __fakeNode_process__.gid;
+        this.mode = mode ?? 0o6440;
+        this.uid = uid;
+        this.gid = gid;;
         this.birthtime = process.hrtime.bigint();
         this.atime = this.birthtime;
         this.mtime = this.birthtime;
@@ -339,7 +320,8 @@ export class FileObject {
         this.ctime = process.hrtime.bigint();
     }
 
-    access(mode: number = F_OK): void {
+    access(mode: ModeArg = F_OK): void {
+        const parsed = parseModeArg(mode);
         const chmodInfo = (this.mode >> 3) & 0o777;
         let perms: number;
         if (process.getuid() === this.uid) {
@@ -349,7 +331,7 @@ export class FileObject {
         } else {
             perms = chmodInfo & 7;
         }
-        if ((((mode & X_OK) === X_OK) && !((perms & X_OK) === X_OK)) || (((mode & W_OK) === W_OK) && !((perms & W_OK) === W_OK)) || (((mode & R_OK) === R_OK) && !((perms & R_OK) === R_OK))) {
+        if ((((parsed & X_OK) === X_OK) && !((perms & X_OK) === X_OK)) || (((parsed & W_OK) === W_OK) && !((perms & W_OK) === W_OK)) || (((parsed & R_OK) === R_OK) && !((perms & R_OK) === R_OK))) {
             throw new Error(`mode ${mode} and permissions ${chmodInfo} are not compatible`);
         }
     }
@@ -361,9 +343,9 @@ export class FileObject {
         this.setCtime();
     }
 
-    chown(uid: string | number, gid: string | number): void {
-        this.uid = __fakeNode__.getUIDFromUser(uid);
-        this.gid = __fakeNode__.getGIDFromGroup(gid);
+    chown(uid: number, gid: number): void {
+        this.uid = uid;
+        this.gid = gid;
         this.setCtime();
     }
 
@@ -384,9 +366,9 @@ export class FileObject {
         this.mtime = parseTimeArg(mtime);
     }
 
-    stat({bigint}: {bigint?: false}): Stats;
+    stat({bigint}?: {bigint?: false}): Stats;
     stat({bigint}: {bigint: true}): BigIntStats;
-    stat({bigint}: {bigint?: boolean}): Stats | BigIntStats {
+    stat({bigint}: {bigint?: boolean} = {}): Stats | BigIntStats {
         if (bigint) {
             let out = new BigIntStats();
             out.dev = 0n;
@@ -452,9 +434,9 @@ export class RegularFile extends FileObject {
         return new RegularFile(new Uint8Array(this.data), {mode: this.mode, uid: this.uid, gid: this.gid});
     }
 
-    read(encoding: BufferEncoding, start: number, length: number): string;
-    read(encoding: 'uint8array', start: number, length: number): Uint8Array;
-    read(encoding: 'buffer', start: number, length: number): Buffer;
+    read(encoding?: BufferEncoding, start?: number, length?: number): string;
+    read(encoding: 'uint8array', start?: number, length?: number): Uint8Array;
+    read(encoding: 'buffer', start?: number, length?: number): Buffer;
     read(encoding: BufferEncoding | 'uint8array' | 'buffer' = 'utf8', start: number = 0, length: number = -1): string | Uint8Array | Buffer {
         if (encoding === 'uint8array') {
             return this.data;
@@ -480,6 +462,18 @@ export class RegularFile extends FileObject {
         }
     }
 
+    append(data: DataArg, encoding: BufferEncoding = 'utf8'): void {
+        const array = parseDataArg(data, encoding);
+        let newData = new Uint8Array(this.data.length + array.length);
+        newData.set(this.data, 0);
+        newData.set(array, this.data.length);
+        this.data = newData;
+    }
+
+    get size(): number {
+        return this.data.length;
+    }
+
 }
 
 
@@ -500,11 +494,45 @@ export class Directory extends FileObject {
     }
 
     get(path: PathArg): FileObject {
-        const file = this.files.get(parsePathArg(path));
-        if (file === undefined) {
-            throw new TypeError(`file ${path} does not exist`);
+        const segments = parsePathArg(path).split('/');
+        let file: FileObject = this;
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i];
+            if (file instanceof Directory) {
+                const newFile = file.files.get(segment);
+                if (newFile === undefined) {
+                    throw new TypeError(`${segments.slice(0, i).join('/')} does not exist`);
+                }
+            } else {
+                throw new TypeError(`${segments.slice(0, i).join('/')} is not a directory`);
+            }
         }
         return file;
+    }
+
+    getRegular(path: PathArg): RegularFile {
+        const file = this.get(path);
+        if (!(file instanceof RegularFile)) {
+            throw new TypeError(`${parsePathArg(path)} is not a regular file`);
+        }
+        return file;
+    }
+
+    exists(path: PathArg): boolean {
+        const segments = parsePathArg(path).split('/');
+        let file: FileObject = this;
+        for (let i = 0; i < segments.length; i++) {
+            const segment = segments[i];
+            if (file instanceof Directory) {
+                const newFile = file.files.get(segment);
+                if (newFile === undefined) {
+                    return false;
+                }
+            } else {
+                throw new TypeError(`${segments.slice(0, i).join('/')} is not a directory`);
+            }
+        }
+        return true;
     }
 
     cp(): Directory {
@@ -515,9 +543,38 @@ export class Directory extends FileObject {
         return new Directory(new Map(Array.from(this.files.entries()).map(([name, file]) => [name, file.cpr()])), {mode: this.mode, uid: this.uid, gid: this.gid});
     }
 
+    get size(): number {
+        return this.files.size;
+    }
+
 }
 
 
-export class FileSystem {
+export class FileSystem extends Directory {
+
+    fileDescriptors: (FileObject | null)[] = [];
+
+    getfd(fd: number): FileObject {
+        const out = this.fileDescriptors[fd];
+        if (out === null) {
+            throw new TypeError(`file descriptor ${fd} is not accessible`);
+        }
+        return out;
+    }
+
+    getfdRegular(fd: number): RegularFile {
+        const out = this.fileDescriptors[fd];
+        if (out === null) {
+            throw new TypeError(`file descriptor ${fd} is not accessible`);
+        } else if (!(out instanceof RegularFile)) {
+            throw new TypeError(`file descriptor ${fd} is not a regular file`);
+        }
+        return out;
+    }
 
 }
+
+
+export const DEFAULT_FILES = {
+
+};
