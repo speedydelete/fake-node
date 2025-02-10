@@ -1,7 +1,7 @@
 
 /// <reference path="./in_fake_node.d.ts" />
 import {callbackify, type TypedArray} from './util';
-import {dirname, filename, resolve} from './path';
+import {dirname, basename, resolve} from './path';
 import {Buffer, type BufferEncoding} from './buffer';
 import {constants, parsePathArg, Directory, FileSystem} from './_fs';
 import type {PathArg, ModeArg, DataArg, TimeArg, Flag, Stats, BigIntStats, StatFs, BigIntStatFs} from './_fs';
@@ -94,7 +94,7 @@ export function lutimesSync(path: PathArg, atime: TimeArg, mtime: TimeArg): void
 }
 
 export function linkSync(existingPath: PathArg, newPath: PathArg): void {
-    fs.get(dirname(parsePathArg(existingPath))).new(filename(parsePathArg(newPath)), fs.get(existingPath));
+    fs.getDir(dirname(parsePathArg(existingPath))).link(basename(parsePathArg(newPath)), fs.get(existingPath));
 }
 
 export function lstatSync(path: PathArg, {bigint, throwIfNoEntry}: {bigint?: false, throwIfNoEntry: false}): Stats;
@@ -105,11 +105,21 @@ export function lstatSync(path: PathArg, {bigint = false, throwIfNoEntry = false
     if (!throwIfNoEntry && !fs.exists(path)) {
         return undefined;
     }
-    return fs.lget(path).stat({bigint});
+    // @ts-ignore // why is it doing this
+    return fs.lget(path).stat(bigint);
 }
 
-export function mkdirSync(path: PathArg, options: {recursive?: boolean, mode?: string | number} | number = 0o777): void {
-    fs.mkdir(path, typeof options === 'number' ? {recursive: false, mode: options} : options);
+export function mkdirSync(path: PathArg, options: {recursive?: boolean, mode?: ModeArg} | ModeArg = 0o777): void {
+    let recursive: boolean;
+    let mode: ModeArg;
+    if (typeof options === 'number' || typeof options === 'string') {
+        recursive = false;
+        mode = options;
+    } else {
+        recursive = options.recursive ?? false;
+        mode = options.mode ?? 0o777;
+    }
+    fs.mkdir(path, recursive, mode);
 }
 
 export function mkdtempSync(prefix: PathArg, options: {encoding?: string} | string = 'utf8'): void {
@@ -120,7 +130,7 @@ export function opendirSync(path: PathArg, {encoding = 'utf8', bufferSize = 32, 
     throw new TypeError('fs.opendir is not supported in fake-node');
 }
 
-export function openSync(path: PathArg, flags: Flag, mode: ModeArg = 'r'): void {
+export function openSync(path: PathArg, flags: Flag, mode: ModeArg = 'r'): number {
     return fs.open(path, flags, mode);
 }
 
@@ -129,8 +139,9 @@ export function readdirSync(path: PathArg, options: {encoding?: string, withFile
 }
 
 export function readFileSync(path: PathArg, options: {encoding?: null | 'buffer', flag?: string} | 'buffer'): Buffer;
-export function readFileSync(path: PathArg, options: {encoding: string, flag?: string} | string): string;
-export function readFileSync(path: PathArg, options: {encoding?: string | null, flag?: string} | string = {encoding: null, flag: 'r'}): string | Buffer {
+export function readFileSync(path: PathArg, options: {encoding: BufferEncoding, flag?: string} | BufferEncoding): string;
+export function readFileSync(path: PathArg, options: {encoding?: BufferEncoding | null | 'buffer', flag?: string} | BufferEncoding | 'buffer' = {encoding: null, flag: 'r'}): string | Buffer {
+    // @ts-ignore // why is it doing this
     return fs.getRegular(path).read(typeof options === 'string' ? options : options.encoding ?? 'buffer');
 }
 
@@ -146,6 +157,7 @@ export function readSync(fd: number, buffer: Buffer | TypedArray | DataView, off
             buffer.setUint8(i, data[i]);
         }
     } else {
+        // @ts-ignore // why is it doing this
         buffer.set(data, position);
     }
     return length;
@@ -156,29 +168,29 @@ export function readvSync(fd: number, buffers: ArrayBufferView[], position: numb
 }
 
 export function realpathSync(path: PathArg, {encoding}: {encoding: string} = {encoding: 'utf8'}): string {
-    return resolve(path);
+    return resolve(parsePathArg(path));
 }
 realpathSync.native = realpathSync;
 
 export function renameSync(oldPath: PathArg, newPath: PathArg): void {
     const parsedOldPath = parsePathArg(oldPath);
     const parsedNewPath = parsePathArg(newPath);
-    const file = fs.get(dirname(parsedOldPath)).unlink(filename(parsedOldPath));
-    fs.get(dirname(parsedNewPath)).link(filename(parsedNewPath), file);
+    const file = fs.getDir(dirname(parsedOldPath)).unlink(basename(parsedOldPath));
+    fs.getDir(dirname(parsedNewPath)).link(basename(parsedNewPath), file);
 }
 
 export function rmdirSync(path: PathArg): void {
     const file = fs.get(path);
     if (!(file instanceof Directory)) {
         throw new TypeError(`cannot remove directory ${path}: is not a directory`);
-    } else if (!(file.files.length === 0)) {
+    } else if (!(file.size === 0)) {
         throw new TypeError(`cannot remove directory ${path}: is not empty`);
     }
     fs.unlink(path);
 }
 
-export function rmSync(path: PathArg, {recursive = false}: {recursive?: boolean} = {}) {
-    fs.rm(path, recursive);
+export function rmSync(path: PathArg): void {
+    fs.unlink(path);
 }
 
 export function statSync(path: PathArg, {bigint, throwIfNoEntry}: {bigint?: false, throwIfNoEntry: false}): Stats;
@@ -189,7 +201,8 @@ export function statSync(path: PathArg, {bigint = false, throwIfNoEntry = false}
     if (!throwIfNoEntry && !fs.exists(path)) {
         return undefined;
     }
-    return fs.get(path).stat({bigint});
+    // @ts-ignore // why is it doing this
+    return fs.get(path).stat(bigint);
 }
 
 export function statfsSync(path: PathArg, {bigint}: {bigint?: false}): StatFs;
@@ -199,6 +212,7 @@ export function statfsSync(path: PathArg, {bigint = false}: {bigint?: boolean} =
     if (!(file instanceof FileSystem)) {
         throw new TypeError(`cannot get fs stat for ${path}: is not a file system`);
     }
+    // @ts-ignore // why is it doing this
     return file.statfs(bigint);
 }
 

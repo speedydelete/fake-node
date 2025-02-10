@@ -255,7 +255,7 @@ export class BigIntStats extends BaseStats {
 }
 
 
-export class StatsFs {
+export class StatFs {
 
     bavail: number = -1;
     bfree: number = -1;
@@ -267,7 +267,7 @@ export class StatsFs {
 
 }
 
-export class BigIntStatsFs {
+export class BigIntStatFs {
 
     bavail: bigint = -1n;
     bfree: bigint = -1n;
@@ -291,7 +291,6 @@ export class FileObject {
     mode: number;
     uid: number;
     gid: number;
-    links: Directory[] = [];
     birthtime: bigint;
     atime: bigint;
     mtime: bigint;
@@ -366,15 +365,15 @@ export class FileObject {
         this.mtime = parseTimeArg(mtime);
     }
 
-    stat({bigint}?: {bigint?: false}): Stats;
-    stat({bigint}: {bigint: true}): BigIntStats;
-    stat({bigint}: {bigint?: boolean} = {}): Stats | BigIntStats {
+    stat(bigint?: false): Stats;
+    stat(bigint: true): BigIntStats;
+    stat(bigint: boolean = false): Stats | BigIntStats {
         if (bigint) {
             let out = new BigIntStats();
             out.dev = 0n;
             out.ino = 0n;
             out.mode = BigInt(this.mode);
-            out.nlink = BigInt(this.links.length);
+            out.nlink = -1n;
             out.uid = BigInt(this.uid);
             out.gid = BigInt(this.gid);
             out.rdev = BigInt(this.rdev);
@@ -399,7 +398,7 @@ export class FileObject {
             out.dev = 0;
             out.ino = 0;
             out.mode = this.mode;
-            out.nlink = this.links.length;
+            out.nlink = -1;
             out.uid = this.uid;
             out.gid = this.gid;
             out.rdev = this.rdev;
@@ -484,13 +483,35 @@ export class Directory extends FileObject {
     constructor(files: Map<string, FileObject>, {mode, ...params}: FileParams);
     constructor(files: {[key: string]: FileObject}, {mode, ...params}: FileParams);
     constructor(files: MapIterator<[string, FileObject]>, {mode, ...params}: FileParams);
-    constructor(files: Map<string, FileObject> | {[key: string]: FileObject} | MapIterator<[string, FileObject]> = new Map(), {mode = 0o6440, ...params}: FileParams) {
+    constructor(files: Map<string, FileObject> | {[key: string]: FileObject} | MapIterator<[string, FileObject]> = new Map(), {mode = 0o7770, ...params}: FileParams) {
         super({mode: mode | S_IFDIR, ...params});
         if (files instanceof Map) {
             this.files = files;
         } else {
             this.files = new Map(Object.entries(files));
         }
+    }
+
+    cp(): Directory {
+        return new Directory(this.files.entries(), {mode: this.mode, uid: this.uid, gid: this.gid});
+    }
+
+    cpr(): Directory {
+        return new Directory(new Map(Array.from(this.files.entries()).map(([name, file]) => [name, file.cpr()])), {mode: this.mode, uid: this.uid, gid: this.gid});
+    }
+
+    get size(): number {
+        return this.files.size;
+    }
+
+    get recursiveSize(): number {
+        let out = this.files.size;
+        for (let file of this.files.values()) {
+            if (file instanceof Directory) {
+                out += file.recursiveSize;
+            }
+        }
+        return out;
     }
 
     get(path: PathArg): FileObject {
@@ -518,6 +539,18 @@ export class Directory extends FileObject {
         return file;
     }
 
+    getDir(path: PathArg): Directory {
+        const file = this.get(path);
+        if (!(file instanceof Directory)) {
+            throw new TypeError(`${parsePathArg(path)} is not a directory`);
+        }
+        return file;
+    }
+
+    lget(path: PathArg): FileObject {
+        return this.get(path);
+    }
+
     exists(path: PathArg): boolean {
         const segments = parsePathArg(path).split('/');
         let file: FileObject = this;
@@ -535,16 +568,42 @@ export class Directory extends FileObject {
         return true;
     }
 
-    cp(): Directory {
-        return new Directory(this.files.entries(), {mode: this.mode, uid: this.uid, gid: this.gid});
+    link(path: PathArg, file: FileObject): void {
+        this.files.set(parsePathArg(path), file);
     }
 
-    cpr(): Directory {
-        return new Directory(new Map(Array.from(this.files.entries()).map(([name, file]) => [name, file.cpr()])), {mode: this.mode, uid: this.uid, gid: this.gid});
+    unlink(path: PathArg): FileObject {
+        const parsed = parsePathArg(path);
+        let file = this.files.get(parsePathArg(parsed));
+        if (file === undefined) {
+            throw new TypeError(`${path} does not exist`);
+        }
+        this.files.delete(parsed);
+        return file;
     }
 
-    get size(): number {
-        return this.files.size;
+    symlink(target: PathArg, path: PathArg): void {
+        throw new TypeError('symlinks are not supported in fake-node');
+    }
+
+    mkdir(path: PathArg, recursive: boolean = false, mode: ModeArg = 0o7770): Directory {
+        const parsed = parsePathArg(path);
+        if (recursive) {
+            const segments = parsed.split('/');
+            let file: Directory = this;
+            for (let i = 0; i < segments.length; i++) {
+                const segment = segments[i];
+                if (file.exists(segment)) {
+                    throw new TypeError(`cannot create ${path}: ${segments.slice(0, i).join('/')} exists`);
+                }
+                file = file.mkdir(path);
+            }
+            return file;
+        } else {
+            let file = new Directory(new Map(), {uid: this.uid, gid: this.gid, mode: parseModeArg(mode)});
+            this.files.set(parsed, file);
+            return file;
+        }
     }
 
 }
@@ -570,6 +629,36 @@ export class FileSystem extends Directory {
             throw new TypeError(`file descriptor ${fd} is not a regular file`);
         }
         return out;
+    }
+
+    open(path: PathArg, flags: Flag, mode: ModeArg = 'r'): number {
+        return this.fileDescriptors.push(this.get(path));
+    }
+
+    statfs(bigint?: false): StatFs;
+    statfs(bigint: true): BigIntStatFs;
+    statfs(bigint?: boolean): StatFs | BigIntStatFs {
+        if (bigint) {
+            let out = new BigIntStatFs();
+            out.bavail = -1n;
+            out.bfree = -1n;
+            out.blocks = -1n;
+            out.bsize = -1n;
+            out.ffree = -1n;
+            out.files = BigInt(this.recursiveSize);
+            out.type = 61267n;
+            return out;
+        } else {
+            let out = new StatFs();
+            out.bavail = Infinity;
+            out.bfree = Infinity;
+            out.blocks = Infinity;
+            out.bsize = Infinity;
+            out.ffree = Infinity;
+            out.files = this.recursiveSize;
+            out.type = 61267;
+            return out;
+        }
     }
 
 }

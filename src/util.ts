@@ -2,9 +2,9 @@
 /// <reference path="./in_fake_node.d.ts" />
 import {emitWarning} from './process';
 
-type TypedArray = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array;
+export type TypedArray = Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array;
 
-type Callback = (error: Error | null, value: unknown) => void;
+export type Callback = (error: Error | null, value: unknown) => void;
 
 function shouldBeCloneable(value: unknown): boolean {
     return value?.constructor === Object || value === undefined || value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string' || typeof value === 'bigint' || Array.isArray(value) || value instanceof ArrayBuffer || value instanceof Boolean || value instanceof DataView || value instanceof Date || value instanceof Error || value instanceof Map || value instanceof Number || value instanceof RegExp || value instanceof Set || value instanceof String || value instanceof Object.getPrototypeOf(Uint8Array) || value instanceof AudioData || value instanceof Blob || value instanceof CryptoKey || value instanceof DOMException || value instanceof DOMMatrix || value instanceof DOMMatrixReadOnly || value instanceof DOMPoint || value instanceof DOMPointReadOnly || value instanceof DOMQuad || value instanceof DOMRect || value instanceof DOMRectReadOnly || value instanceof EncodedAudioChunk || value instanceof EncodedVideoChunk || value instanceof File || value instanceof FileList || value instanceof FileSystemDirectoryHandle || value instanceof FileSystemFileHandle || value instanceof FileSystemHandle || value instanceof ImageBitmap || value instanceof ImageData || value instanceof RTCCertificate || value instanceof RTCEncodedAudioFrame || value instanceof RTCEncodedVideoFrame || value instanceof VideoFrame || value instanceof WebTransportError;

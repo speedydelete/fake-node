@@ -1,6 +1,6 @@
 
 import * as baseProcessObject from './process';
-import {fileDescriptors, FileSystem, DEFAULT_FILES} from './_fs';
+import {FileSystem, DEFAULT_FILES} from './_fs';
 import * as module_os from './os';
 import * as module_util from './util';
 import * as module_querystring from './querystring';
@@ -124,7 +124,6 @@ export class FakeNode {
     globalName: string;
 
     fs: FileSystem;
-    fileDescriptors: (string | null)[] = fileDescriptors;
 
     processes: Map<number, Process> = new Map();
     nextPid: number = 3;
