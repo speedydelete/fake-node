@@ -74,17 +74,17 @@ export class Process {
 
     path: string;
     module: false | string;
-    code: string;
+    code?: string;
 
-    constructor(fakeNode: FakeNode, {path = '', code, module}: {path?: string, code: string, module?: false | string}) {
+    constructor(fakeNode: FakeNode, {path = '<anonymous>', code, module = false}: {path?: string, code?: string, module?: false | string}) {
         this.fakeNode = fakeNode;
         this.pid = fakeNode.nextPid;
         fakeNode.nextPid++;
         fakeNode.processes.set(this.pid, this);
-        this.code = code;
         this.path = path;
         this.cwd = path.split('/').slice(0, -1).join('/');
-        this.module = module ?? false;
+        this.module = module;
+        this.code = code;
     }
 
     get env(): {[key: string]: string} {
@@ -92,14 +92,18 @@ export class Process {
     }
 
     run(): void {
-        let code: string;
+        let code = this.code;
+        if (code === undefined) {
+            code = this.fakeNode.fs.readFrom(this.path);
+        }
+        let injectCode: string;
         if (this.module) {
-            code = `with(${this.fakeNode.globalName}.getGlobals(${this.pid})){__fakeNode__.modules.set('${this.module},(function(){${this.code};return module.exports;})());}`;
+            injectCode = `with(${this.fakeNode.globalName}.getGlobals(${this.pid})){__fakeNode__.modules.set('${this.module},(function(){${code};return module.exports;})());}`;
         } else {
-            code = `with(${this.fakeNode.globalName}.getGlobals(${this.pid})){(function(){${this.code}})();}`;
+            injectCode = `with(${this.fakeNode.globalName}.getGlobals(${this.pid})){(function(){${code}})();}`;
         }
         let elt = document.createElement('script');
-        elt.textContent = code;
+        elt.textContent = injectCode;
         document.body.appendChild(elt);
     }
 
@@ -161,6 +165,13 @@ export class FakeNode {
     }
 
     require(module: string, pid: number): unknown {
+        if (module.startsWith('/') || module.startsWith('./') || module.startsWith('../')) {
+            const process = this.processes.get(pid);
+            if (process === undefined) {
+                throw new TypeError(`nonexistent PID in FakeNode.getProcessObject call: ${pid}. If you do not know why this occured, it is probably a bug in fake-node.`);
+            }
+            module = module_path.resolve(process.cwd, module);
+        }
         if (this.modules.has(module)) {
             return this.modules.get(module);
         } else if (module === 'process' || module === 'node:process' || module === 'fake-node:process') {
@@ -170,17 +181,21 @@ export class FakeNode {
         }
     }
 
-    getPlatform(): string {
-        const data = navigator.userAgent.slice('Mozilla/5.0 ('.length, navigator.userAgent.indexOf(')'));
-        if (data.includes('Windows')) {
-            return 'win32';
-        } else if (data.includes('Linux')) {
-            return 'linux';
-        } else if (data.includes('Mac')) {
-            return 'darwin';
-        } else {
-            return 'unknown';
-        }
+    addModuleFromValue(name: string, module: unknown): void {
+        this.modules.set(name, module);
+    }
+
+    eval(code: string): void {
+        (new Process(this, {code, path: '/'})).run();
+    }
+
+    evalModule(name: string, code: string): void {
+        (new Process(this, {code, path: '/', module: name})).run();
+    }
+
+    addModule(path: string, data: string): void {
+        this.fs.writeTo(path, data);
+        (new Process(this, {path, module: path}))
     }
 
     getProcessObject(pid: number): ProcessObject {
@@ -238,18 +253,6 @@ export class FakeNode {
         return env;
     }
 
-    run(code: string): void {
-        (new Process(this, {code, path: '/'})).run();
-    }
-
-    addModule(name: string, code: string): void {
-        (new Process(this, {code, path: '/', module: name})).run();
-    }
-
-    addModuleFromValue(name: string, module: unknown): void {
-        this.modules.set(name, module);
-    }
-
     getUserFromUID(uid: number | string): string {
         if (typeof uid === 'string') {
             return uid;
@@ -297,6 +300,19 @@ export class FakeNode {
 
     removeErrorCallback(callbackID: number): void {
         this.errorCallbacks[callbackID] = undefined;
+    }
+
+    getPlatform(): string {
+        const data = navigator.userAgent.slice('Mozilla/5.0 ('.length, navigator.userAgent.indexOf(')'));
+        if (data.includes('Windows')) {
+            return 'win32';
+        } else if (data.includes('Linux')) {
+            return 'linux';
+        } else if (data.includes('Mac')) {
+            return 'darwin';
+        } else {
+            return 'unknown';
+        }
     }
 
 }

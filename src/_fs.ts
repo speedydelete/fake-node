@@ -606,6 +606,23 @@ export class Directory extends FileObject {
         }
     }
 
+    readFrom(path: PathArg, encoding?: BufferEncoding, start?: number, length?: number): string;
+    readFrom(path: PathArg, encoding: 'uint8array', start?: number, length?: number): Uint8Array;
+    readFrom(path: PathArg, encoding: 'buffer', start?: number, length?: number): Buffer;
+    readFrom(path: PathArg, encoding: BufferEncoding | 'uint8array' | 'buffer' = 'utf8', start: number = 0, length: number = -1): string | Uint8Array | Buffer {
+        // @ts-ignore
+        return this.getRegular(path).read(encoding, start, length);
+    }
+
+    writeTo(path: PathArg, data: string, position?: number, encoding?: BufferEncoding): void;
+    writeTo(path: PathArg, data: TypedArray | DataView | Iterable<any>, offset?: number, length?: number): void;
+    writeTo(path: PathArg, data: DataArg, position?: number, encoding_or_length?: number | BufferEncoding): void {
+        // @ts-ignore
+        this.getRegular(path).write(data, position, encoding_or_length);
+    }
+
+
+
 }
 
 
