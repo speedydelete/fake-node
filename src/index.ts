@@ -11,6 +11,9 @@ import * as module_fs from './fs';
 import WEB_ONLY_GLOBALS from './web_only_globals.json';
 
 
+export * as fs from './_fs';
+
+
 const IS_BROWSER = (('window' in globalThis && window === globalThis && 'document' in window && 'navigator' in window && 'window' in window && window.window === window) || ('self' in globalThis && self === globalThis && typeof self.postMessage === 'function' && 'self' in self && self.self === self));
 
 
