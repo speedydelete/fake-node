@@ -58,6 +58,7 @@ export const constants = {F_OK, X_OK, W_OK, R_OK, COPYFILE_EXCL, COPYFILE_FICLON
 
 
 const encoder = new TextEncoder();
+const decoder = new TextDecoder('utf8');
 
 
 export type PathArg = string | URL | Buffer;
@@ -280,13 +281,27 @@ export class BigIntStatFs {
 }
 
 
+export type ExportFormatVersion = 1;
+export const currentExportFormatVersion: ExportFormatVersion = 1;
+
 export interface FileParams {
     mode?: number;
     uid: number;
     gid: number;
 }
 
-export class FileObject {
+export interface FileMetadata {
+    mode: number;
+    uid: number;
+    gid: number;
+    size: number;
+    birthtime: bigint;
+    atime: bigint;
+    mtime: bigint;
+    ctime: bigint;
+}
+
+export class FileObject implements FileMetadata {
 
     mode: number;
     uid: number;
@@ -417,6 +432,34 @@ export class FileObject {
         }
     }
 
+    _export(): Uint8Array {
+        let buffer = new ArrayBuffer(10);
+        let view = new DataView(buffer);
+        view.setUint16(0, this.mode, true);
+        view.setUint16(2, this.uid, true);
+        view.setUint16(4, this.gid, true);
+        view.setUint32(6, this.size, true);
+        return new Uint8Array(buffer);
+    }
+
+    static _import(data: Uint8Array, version: ExportFormatVersion = currentExportFormatVersion): FileMetadata {
+        let view = new DataView(data.buffer);
+        return {
+            mode: view.getUint16(0, true),
+            uid: view.getUint16(2, true),
+            gid: view.getUint16(4, true),
+            size: view.getUint16(6, true),
+            birthtime: 0n,
+            atime: 0n,
+            mtime: 0n,
+            ctime: 0n,
+        };
+    }
+
+    export(): Uint8Array {
+        return this._export();
+    }
+
 }
 
 
@@ -424,9 +467,9 @@ export class RegularFile extends FileObject {
 
     data: Uint8Array;
 
-    constructor(data: DataArg, {mode = 0o6440, encoding, ...params}: FileParams & {encoding?: string}) {
+    constructor(data: DataArg, {mode = 0o6440, encoding, ...params}: FileParams & {encoding?: BufferEncoding}) {
         super({mode: mode | S_IFREG, ...params});
-        this.data = parseDataArg(data);
+        this.data = parseDataArg(data, encoding);
     }
 
     cp(): RegularFile {
@@ -459,6 +502,7 @@ export class RegularFile extends FileObject {
         } else {
             this.data.set(array.slice(0, length), position);
         }
+        this.setMtime();
     }
 
     append(data: DataArg, encoding: BufferEncoding = 'utf8'): void {
@@ -467,10 +511,28 @@ export class RegularFile extends FileObject {
         newData.set(this.data, 0);
         newData.set(array, this.data.length);
         this.data = newData;
+        this.setMtime();
     }
 
     get size(): number {
         return this.data.length;
+    }
+
+    export(): Uint8Array {
+        let out = new Uint8Array(10 + this.size);
+        out.set(this._export(), 0);
+        out.set(this.data, 10);
+        return out;
+    }
+
+    static import(data: Uint8Array, version: ExportFormatVersion = currentExportFormatVersion): RegularFile {
+        const info = this._import(data, version);
+        let out = new RegularFile(data.slice(10, 10 + info.size), info);
+        out.atime = info.atime;
+        out.mtime = info.mtime;
+        out.ctime = info.ctime;
+        out.birthtime = info.birthtime;
+        return out;
     }
 
 }
@@ -621,7 +683,49 @@ export class Directory extends FileObject {
         this.getRegular(path).write(data, position, encoding_or_length);
     }
 
+    export(): Uint8Array {
+        let entries = this.files.entries().map(([name, data]) => [encoder.encode(name), data.export()]);
+        let size = entries.map(([name, data]) => 1 + name.length + data.length).reduce((x, y) => x + y);
+        let out = new Uint8Array(10 + size);
+        out.set(this._export(), 0);
+        let offset = 10;
+        for (const [name, data] of entries) {
+            out[offset] = name.length;
+            out.set(name, offset + 1);
+            offset += 1 + name.length;
+            out.set(data, offset);
+            offset += data.length;
+        }
+        return out;
+    }
 
+    static import(data: Uint8Array, version: ExportFormatVersion = currentExportFormatVersion): Directory {
+        const info = this._import(data, version);
+        let offset = 10;
+        let entries: [string, FileObject][] = [];
+        for (let i = 0; i < info.size; i++) {
+            const nameLength = data[offset];
+            const name = decoder.decode(data.slice(offset, offset + nameLength));
+            offset += nameLength;
+            const meta = this._import(data.slice(offset, offset + 10), version);
+            const fileData = data.slice(offset, offset + 10 + meta.size);
+            let file: FileObject;
+            if ((meta.mode & S_IFREG) === S_IFREG) {
+                file = RegularFile.import(fileData);
+            } else if ((meta.mode & S_IFDIR) === S_IFDIR) {
+                file = Directory.import(fileData);
+            } else {
+                throw new TypeError(`invalid file mode: ${meta.mode}`);
+            }
+            entries.push([name, file]);
+        }
+        let out = new Directory(new Map(entries), info);
+        out.atime = info.atime;
+        out.mtime = info.mtime;
+        out.ctime = info.ctime;
+        out.birthtime = info.birthtime;
+        return out;
+    }
 
 }
 
@@ -630,8 +734,8 @@ export class FileSystem extends Directory {
 
     fileDescriptors: (FileObject | null)[] = [];
 
-    constructor() {
-        super(DEFAULT_FILES, {uid: 0, gid: 0});
+    constructor(files: Map<string, FileObject> = DEFAULT_FILES) {
+        super(files, {uid: 0, gid: 0});
     }
 
     getfd(fd: number): FileObject {
@@ -681,10 +785,20 @@ export class FileSystem extends Directory {
             return out;
         }
     }
+    
+    fsExport(): Uint8Array {
+        const data = this.export();
+        let out = new Uint8Array(1 + data.length);
+        out[0] = currentExportFormatVersion;
+        out.set(data, 1);
+        return out;
+    }
+
+    fsImport(data: Uint8Array): FileSystem {
+        return new FileSystem(Directory.import(data.slice(1), (data[0] as ExportFormatVersion)).files);
+    }
 
 }
 
 
-export const DEFAULT_FILES = {
-
-};
+export const DEFAULT_FILES = new Map();
