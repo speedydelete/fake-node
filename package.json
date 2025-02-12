@@ -1,6 +1,6 @@
 {
   "name": "fake-node",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A fake version of Node that works in the browser",
   "license": "MIT",
   "author": "speedydelete",
