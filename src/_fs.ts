@@ -57,8 +57,8 @@ const S_IXOTH = 0o001;
 export const constants = {F_OK, X_OK, W_OK, R_OK, COPYFILE_EXCL, COPYFILE_FICLONE, COPYFILE_FICLONE_FORCE, O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_NOCTTY, O_TRUNC, O_APPEND, O_DIRECTORY, O_NOATIME, O_NOFOLLOW, O_SYNC, O_DSYNC, O_SYMLINK, O_DIRECT, O_NONBLOCK, UV_FS_O_FILEMAP, S_IMFT, S_IFREG, S_IFDIR, S_IFCHR, S_IFBLK, S_IFIFO, S_IFLNK, S_IFSOCK, S_IRWXU, S_IRUSR, S_IWUSR, S_IXUSR, S_IRWXG, S_IRGRP, S_IWGRP, S_IXGRP, S_IRWXO, S_IROTH, S_IWOTH, S_IXOTH};
 
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder('utf8');
+export const encode = (new TextEncoder()).encode;
+export const decode = (new TextDecoder('utf8')).decode;
 
 
 export type PathArg = string | URL | Buffer;
@@ -140,7 +140,7 @@ export type DataArg = string | TypedArray | DataView | Iterable<any>;
 export function parseDataArg(data: DataArg, encoding: BufferEncoding = 'utf8'): Uint8Array {
     if (typeof data === 'string') {
         if (encoding === 'utf8') {
-            return encoder.encode(data);
+            return encode(data);
         } else {
             // @ts-ignore
             return new Uint8Array(Buffer.from(data, encoding));
@@ -684,7 +684,7 @@ export class Directory extends FileObject {
     }
 
     export(): Uint8Array {
-        let entries = this.files.entries().map(([name, data]) => [encoder.encode(name), data.export()]);
+        let entries = this.files.entries().map(([name, data]) => [encode(name), data.export()]);
         let size = entries.map(([name, data]) => 1 + name.length + data.length).reduce((x, y) => x + y);
         let out = new Uint8Array(10 + size);
         out.set(this._export(), 0);
@@ -705,7 +705,7 @@ export class Directory extends FileObject {
         let entries: [string, FileObject][] = [];
         for (let i = 0; i < info.size; i++) {
             const nameLength = data[offset];
-            const name = decoder.decode(data.slice(offset, offset + nameLength));
+            const name = decode(data.slice(offset, offset + nameLength));
             offset += nameLength;
             const meta = this._import(data.slice(offset, offset + 10), version);
             const fileData = data.slice(offset, offset + 10 + meta.size);
