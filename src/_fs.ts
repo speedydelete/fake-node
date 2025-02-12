@@ -794,7 +794,7 @@ export class FileSystem extends Directory {
         return out;
     }
 
-    fsImport(data: Uint8Array): FileSystem {
+    static fsImport(data: Uint8Array): FileSystem {
         return new FileSystem(Directory.import(data.slice(1), (data[0] as ExportFormatVersion)).files);
     }
 
