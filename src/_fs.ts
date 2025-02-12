@@ -411,7 +411,7 @@ export class FileObject implements FileMetadata {
     }
 
     get size(): number {
-        return -1;
+        return 0;
     }
 
     utimes(atime: TimeArg, mtime: TimeArg) {
@@ -756,6 +756,7 @@ export class Directory extends FileObject {
             offset += nameLength;
             const meta = this._import(data.slice(offset, offset + 10), version);
             const fileData = data.slice(offset, offset + 10 + meta.size);
+            offset += 10 + meta.size;
             let file: FileObject;
             if ((meta.mode & S_IFREG) === S_IFREG) {
                 file = RegularFile.import(fileData);
