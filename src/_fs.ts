@@ -1,6 +1,6 @@
 
+/// <reference path="./in_fake_node.d.ts" />
 import * as process from './process';
-import {normalize, resolve} from './path';
 import {Buffer, type BufferEncoding} from './buffer';
 
 
@@ -57,9 +57,44 @@ const S_IXOTH = 0o001;
 export const constants = {F_OK, X_OK, W_OK, R_OK, COPYFILE_EXCL, COPYFILE_FICLONE, COPYFILE_FICLONE_FORCE, O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_EXCL, O_NOCTTY, O_TRUNC, O_APPEND, O_DIRECTORY, O_NOATIME, O_NOFOLLOW, O_SYNC, O_DSYNC, O_SYMLINK, O_DIRECT, O_NONBLOCK, UV_FS_O_FILEMAP, S_IMFT, S_IFREG, S_IFDIR, S_IFCHR, S_IFBLK, S_IFIFO, S_IFLNK, S_IFSOCK, S_IRWXU, S_IRUSR, S_IWUSR, S_IXUSR, S_IRWXG, S_IRGRP, S_IWGRP, S_IXGRP, S_IRWXO, S_IROTH, S_IWOTH, S_IXOTH};
 
 
+// functions copied over from path module so they can be used outside of fake-node
+
+export function normalize(path: string): string {
+    let out: string[] = [];
+    for (const segment of path.split('/')) {
+        if (segment === '' || segment === '.') {
+            continue;
+        } else if (segment === '..') {
+            out.pop();
+        } else {
+            out.push(segment);
+        }
+    }
+    return out.join('/');
+}
+
+export let cwdGetter = () => {
+    return __fakeNode_process__.cwd;
+}
+
+export function setCwdGetter(newGetter: () => string) {
+    cwdGetter = newGetter;
+}
+
+export function resolve(...paths: string[]): string {
+    let out = '';
+    for (let i = paths.length - 1; i > 0; i--) {
+        out += paths[i];
+        if (out.startsWith('/')) {
+            return out;
+        }
+    }
+    return cwdGetter() + out;
+}
+
+
 export const encode = (new TextEncoder()).encode;
 export const decode = (new TextDecoder('utf8')).decode;
-
 
 export type PathArg = string | URL | Buffer;
 
