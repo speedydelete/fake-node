@@ -630,6 +630,10 @@ export class FileSystem extends Directory {
 
     fileDescriptors: (FileObject | null)[] = [];
 
+    constructor() {
+        super(DEFAULT_FILES, {uid: 0, gid: 0});
+    }
+
     getfd(fd: number): FileObject {
         const out = this.fileDescriptors[fd];
         if (out === null) {

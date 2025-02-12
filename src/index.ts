@@ -1,6 +1,6 @@
 
 import * as baseProcessObject from './process';
-import {FileSystem, DEFAULT_FILES} from './_fs';
+import {FileSystem} from './_fs';
 import * as module_os from './os';
 import * as module_util from './util';
 import * as module_querystring from './querystring';
@@ -157,7 +157,7 @@ export class FakeNode {
         } else {
             Object.defineProperty(this, 'window', {get() {throw new ReferenceError('fake-node is not running in a browser')}});
         }
-        this.fs = new FileSystem(DEFAULT_FILES, {uid: 0, gid: 0});
+        this.fs = new FileSystem();
         window.addEventListener('error', ({error}) => this.onError(error));
         window.addEventListener('unhandledrejection', ({reason}) => reason instanceof Error ? this.onError(reason) : this.onError(new Error(String(reason))));
         for (const [name, module] of BUILTIN_MODULES) {

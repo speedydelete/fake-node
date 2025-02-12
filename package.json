@@ -6,6 +6,10 @@
   "author": "speedydelete",
   "type": "commonjs",
   "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./_fs": "./lib/_fs.js"
+  },
   "types": "lib/index.d.ts",
   "files": [
     "/src",
