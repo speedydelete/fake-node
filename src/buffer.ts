@@ -1,6 +1,4 @@
 
-/// <reference path="./in_fake_node.d.ts" />
-
 const Blob_ = Blob;
 export {Blob_ as Blob};
 

@@ -1,6 +1,5 @@
 
 /// <reference path="./in_fake_node.d.ts" />
-import * as process from './process';
 import {Buffer, type BufferEncoding} from './buffer';
 
 
@@ -73,17 +72,22 @@ export function normalize(path: string): string {
     return out.join('/');
 }
 
-export let cwdGetter = () => {
-    return __fakeNode_process__.cwd;
-}
-
+export let cwdGetter = () => __fakeNode_process__.cwd;
+export let uidGetter = () => __fakeNode_process__.uid;
+export let gidGetter = () => __fakeNode_process__.gid;
 export function setCwdGetter(newGetter: () => string) {
     cwdGetter = newGetter;
+}
+export function setUidGetter(newGetter: () => number) {
+    uidGetter = newGetter;
+}
+export function setGidGetter(newGetter: () => number) {
+    gidGetter = newGetter;
 }
 
 export function resolve(...paths: string[]): string {
     let out = '';
-    for (let i = paths.length - 1; i > 0; i--) {
+    for (let i = paths.length - 1; i >= 0; i--) {
         out += paths[i];
         if (out.startsWith('/')) {
             return out;
@@ -93,25 +97,25 @@ export function resolve(...paths: string[]): string {
 }
 
 
-export const encode = (new TextEncoder()).encode;
-export const decode = (new TextDecoder('utf8')).decode;
-
 export type PathArg = string | URL | Buffer;
 
 export function parsePathArg(arg: PathArg): string {
+    let out: string;
     if (typeof arg === 'string') {
-        return resolve(arg);
+        out = arg;
     } else if (arg instanceof Buffer) {
-        return resolve(arg.toString('utf8'));
+        out = arg.toString('utf-8');
     } else if (arg instanceof URL) {
         if (arg.protocol === 'file:') {
-            return resolve(arg.pathname);
+            out = arg.pathname;
+            return normalize(resolve(arg.pathname));
         } else {
             throw new TypeError(`invalid file URL: ${arg}`);
         }
     } else {
         throw new TypeError(`invalid path: ${arg}`);
     }
+    return resolve(normalize(out));
 }
 
 const flags = {
@@ -175,13 +179,13 @@ export type DataArg = string | TypedArray | DataView | Iterable<any>;
 export function parseDataArg(data: DataArg, encoding: BufferEncoding = 'utf8'): Uint8Array {
     if (typeof data === 'string') {
         if (encoding === 'utf8') {
-            return encode(data);
+            return (new TextEncoder()).encode(data);
         } else {
             // @ts-ignore
             return new Uint8Array(Buffer.from(data, encoding));
         }
     } else if (data instanceof DataView || data instanceof Int8Array || data instanceof Uint8Array || data instanceof Uint8ClampedArray || data instanceof Int16Array || data instanceof Uint16Array || data instanceof Int32Array || data instanceof Uint32Array || data instanceof Float32Array || data instanceof Float64Array || data instanceof BigInt64Array || data instanceof BigUint64Array) {
-        return new Uint8Array(data.buffer);
+        return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } else if (data !== null && typeof data[Symbol.iterator] === 'function') {
         return new Uint8Array(data);
     } else {
@@ -351,31 +355,31 @@ export class FileObject implements FileMetadata {
         this.mode = mode ?? 0o6440;
         this.uid = uid;
         this.gid = gid;;
-        this.birthtime = process.hrtime.bigint();
+        this.birthtime = BigInt(Math.round(performance.now() * 1e9));
         this.atime = this.birthtime;
         this.mtime = this.birthtime;
         this.ctime = this.birthtime;
     }
 
     setAtime() {
-        this.atime = process.hrtime.bigint();
+        this.atime = BigInt(Math.round(performance.now() * 1e9));
     }
 
     setMtime() {
-        this.mtime = process.hrtime.bigint();
+        this.mtime = BigInt(Math.round(performance.now() * 1e9));
     }
 
     setCtime() {
-        this.ctime = process.hrtime.bigint();
+        this.ctime = BigInt(Math.round(performance.now() * 1e9));
     }
 
     access(mode: ModeArg = F_OK): void {
         const parsed = parseModeArg(mode);
         const chmodInfo = (this.mode >> 3) & 0o777;
         let perms: number;
-        if (process.getuid() === this.uid) {
+        if (uidGetter() === this.uid) {
             perms = (chmodInfo >> 6) & 7;
-        } else if (process.getgid() === this.gid) {
+        } else if (gidGetter() === this.gid) {
             perms = (chmodInfo >> 3) & 7;
         } else {
             perms = chmodInfo & 7;
@@ -478,7 +482,7 @@ export class FileObject implements FileMetadata {
     }
 
     static _import(data: Uint8Array, version: ExportFormatVersion = currentExportFormatVersion): FileMetadata {
-        let view = new DataView(data.buffer);
+        let view = new DataView(data.buffer, data.byteOffset, data.byteLength);
         return {
             mode: view.getUint16(0, true),
             uid: view.getUint16(2, true),
@@ -612,15 +616,16 @@ export class Directory extends FileObject {
     }
 
     get(path: PathArg): FileObject {
-        const segments = parsePathArg(path).split('/');
+        const segments = parsePathArg(path).slice(1).split('/');
         let file: FileObject = this;
         for (let i = 0; i < segments.length; i++) {
             const segment = segments[i];
             if (file instanceof Directory) {
                 const newFile = file.files.get(segment);
                 if (newFile === undefined) {
-                    throw new TypeError(`${segments.slice(0, i).join('/')} does not exist`);
+                    throw new TypeError(`${segments.slice(0, i + 1).join('/')} does not exist`);
                 }
+                file = newFile;
             } else {
                 throw new TypeError(`${segments.slice(0, i).join('/')} is not a directory`);
             }
@@ -631,17 +636,17 @@ export class Directory extends FileObject {
     getRegular(path: PathArg): RegularFile {
         const file = this.get(path);
         if (!(file instanceof RegularFile)) {
-            throw new TypeError(`${parsePathArg(path)} is not a regular file`);
+            throw new TypeError(`${path} is not a regular file`);
         }
-        return file;
+        return file as RegularFile;
     }
 
     getDir(path: PathArg): Directory {
         const file = this.get(path);
         if (!(file instanceof Directory)) {
-            throw new TypeError(`${parsePathArg(path)} is not a directory`);
+            throw new TypeError(`${path} is not a directory`);
         }
-        return file;
+        return file as Directory;
     }
 
     lget(path: PathArg): FileObject {
@@ -714,12 +719,17 @@ export class Directory extends FileObject {
     writeTo(path: PathArg, data: string, position?: number, encoding?: BufferEncoding): void;
     writeTo(path: PathArg, data: TypedArray | DataView | Iterable<any>, offset?: number, length?: number): void;
     writeTo(path: PathArg, data: DataArg, position?: number, encoding_or_length?: number | BufferEncoding): void {
-        // @ts-ignore
-        this.getRegular(path).write(data, position, encoding_or_length);
+        if (this.exists(path)) {
+            // @ts-ignore
+            this.getRegular(path).write(data, position, encoding_or_length);
+        } else {
+            this.files.set(parsePathArg(path).slice(1), new RegularFile(data, {uid: this.uid, gid: this.gid}));
+        }
     }
 
     export(): Uint8Array {
-        let entries = this.files.entries().map(([name, data]) => [encode(name), data.export()]);
+        const encoder = new TextEncoder();
+        let entries = Array.from(this.files.entries().map(([name, data]) => [encoder.encode(name), data.export()]));
         let size = entries.map(([name, data]) => 1 + name.length + data.length).reduce((x, y) => x + y);
         let out = new Uint8Array(10 + size);
         out.set(this._export(), 0);
@@ -735,12 +745,14 @@ export class Directory extends FileObject {
     }
 
     static import(data: Uint8Array, version: ExportFormatVersion = currentExportFormatVersion): Directory {
+        const decoder = new TextDecoder();
         const info = this._import(data, version);
         let offset = 10;
         let entries: [string, FileObject][] = [];
         for (let i = 0; i < info.size; i++) {
             const nameLength = data[offset];
-            const name = decode(data.slice(offset, offset + nameLength));
+            offset++;
+            const name = decoder.decode(data.slice(offset, offset + nameLength));
             offset += nameLength;
             const meta = this._import(data.slice(offset, offset + 10), version);
             const fileData = data.slice(offset, offset + 10 + meta.size);
