@@ -487,7 +487,7 @@ export class FileObject implements FileMetadata {
             mode: view.getUint16(0, true),
             uid: view.getUint16(2, true),
             gid: view.getUint16(4, true),
-            size: view.getUint16(6, true),
+            size: view.getUint32(6, true),
             birthtime: 0n,
             atime: 0n,
             mtime: 0n,
